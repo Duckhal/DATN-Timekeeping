@@ -1,0 +1,55 @@
+// Prisma Schema — Timekeeping System
+// Generator: prisma-client-js | Datasource: PostgreSQL
+// Version constraint: Prisma ^6.0.0 — DO NOT upgrade to v7 (breaking changes)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────
+
+enum Role {
+  EMPLOYEE
+  HR
+}
+
+// Future enums (defined here for schema awareness, used in later modules)
+enum CalcStatus {
+  PENDING
+  CALCULATED
+  RECALCULATED
+  ERROR
+}
+
+enum RequestType {
+  OT
+  EXPLANATION
+  LEAVE
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// ─────────────────────────────────────────────
+// 4.1 Employees — Core Identity
+// ─────────────────────────────────────────────
+model Employee {
+  emp_id           Int       @id @default(autoincrement())
+  fingerprint_id   String?   @unique
+  account_username String    @unique
+  password_hash    String
+  full_name        String
+  role             Role      @default(EMPLOYEE)
+  hourly_rate      Decimal   @db.Decimal(10, 2)
+  created_at       DateTime  @default(now())
+}
