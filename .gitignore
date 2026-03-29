@@ -1,4 +1,3 @@
-tasks/
 .env
 node_modules/
 dist/
