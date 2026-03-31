@@ -14,6 +14,8 @@ export const quickActions: QuickAction[] = [
 export const attendanceRecords: AttendanceRecord[] = [
   {
     date: '24/03/2026',
+    workStart: '08:00',
+    workEnd: '17:30',
     checkIn: '13:47:57',
     checkOut: '18:03:08',
     missingMinutes: 223,
@@ -22,6 +24,8 @@ export const attendanceRecords: AttendanceRecord[] = [
   },
   {
     date: '23/03/2026',
+    workStart: '08:30',
+    workEnd: '18:00',
     checkIn: '09:38:11',
     checkOut: '18:12:35',
     missingMinutes: 55,
@@ -30,6 +34,8 @@ export const attendanceRecords: AttendanceRecord[] = [
   },
   {
     date: '22/03/2026',
+    workStart: '-',
+    workEnd: '-',
     checkIn: '-',
     checkOut: '-',
     missingMinutes: 0,
@@ -38,6 +44,8 @@ export const attendanceRecords: AttendanceRecord[] = [
   },
   {
     date: '20/03/2026',
+    workStart: '09:00',
+    workEnd: '18:30',
     checkIn: '08:11:43',
     checkOut: '17:40:55',
     missingMinutes: 0,

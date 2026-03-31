@@ -121,6 +121,8 @@ export function PortalDashboard({ welcomeName }: PortalDashboardProps) {
               <TableHead>
                 <TableRow sx={{ bgcolor: 'rgba(0, 160, 157, 0.08)' }}>
                   <TableCell>Date</TableCell>
+                  <TableCell>Work Start</TableCell>
+                  <TableCell>Work End</TableCell>
                   <TableCell>Check in</TableCell>
                   <TableCell>Check out</TableCell>
                   <TableCell>Missing Minutes</TableCell>
@@ -132,6 +134,8 @@ export function PortalDashboard({ welcomeName }: PortalDashboardProps) {
                 {attendanceRecords.map((item) => (
                   <TableRow key={item.date} hover>
                     <TableCell>{item.date}</TableCell>
+                    <TableCell>{item.workStart}</TableCell>
+                    <TableCell>{item.workEnd}</TableCell>
                     <TableCell>{item.checkIn}</TableCell>
                     <TableCell>{item.checkOut}</TableCell>
                     <TableCell>{item.missingMinutes}</TableCell>

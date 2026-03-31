@@ -4,6 +4,8 @@ export type AttendanceStatus = 'Complete' | 'Short Hours' | 'Day Off'
 
 export type AttendanceRecord = {
   date: string
+  workStart: string
+  workEnd: string
   checkIn: string
   checkOut: string
   missingMinutes: number
