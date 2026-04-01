@@ -1,28 +1,29 @@
+import { useState } from 'react'
+import type { MouseEvent } from 'react'
 import {
   AppBar,
   Avatar,
   Box,
+  Button,
   IconButton,
-  Stack,
+  Menu,
+  MenuItem,
   Toolbar,
   Typography,
 } from '@mui/material'
 import FaceRoundedIcon from '@mui/icons-material/FaceRounded'
-import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded'
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { PortalDashboard } from '../components/portal/PortalDashboard'
 import { useAuth } from '../hooks/useAuth'
 
 export function PortalPage() {
   const navigate = useNavigate()
-  const { email, isAuthenticated, logout } = useAuth()
+  const { profile, logout } = useAuth()
+  const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null)
+  const isUserMenuOpen = Boolean(menuAnchorEl)
 
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />
-  }
-
-  const local = email.split('@')[0]
+  const local = profile?.email?.split('@')[0] ?? ''
   const welcomeName = local ? local.replace(/[._-]/g, ' ') : 'Employee'
 
   return (
@@ -47,24 +48,46 @@ export function PortalPage() {
         <Toolbar sx={{ gap: 2 }}>
           <Avatar sx={{ bgcolor: 'primary.main', width: 34, height: 34 }}>ST</Avatar>
           <Typography fontWeight={700} sx={{ flexGrow: 1 }}>
-            SotaTek Portal
+            Portal
           </Typography>
           <IconButton>
             <MenuRoundedIcon />
           </IconButton>
-          <Stack direction="row" spacing={1} alignItems="center">
-            <FaceRoundedIcon fontSize="small" color="primary" />
-            <Typography variant="body2">{welcomeName}</Typography>
-          </Stack>
-          <IconButton
-            color="primary"
-            onClick={() => {
-              logout()
-              navigate('/login', { replace: true })
+          <Button
+            size="small"
+            onClick={(event: MouseEvent<HTMLElement>) => {
+              setMenuAnchorEl(event.currentTarget)
             }}
+            sx={{ textTransform: 'none' }}
           >
-            <LogoutRoundedIcon />
-          </IconButton>
+            <FaceRoundedIcon fontSize="small" color="primary" />
+            <Typography variant="body2" sx={{ ml: 1 }}>
+              {welcomeName}
+            </Typography>
+          </Button>
+          <Menu
+            anchorEl={menuAnchorEl}
+            open={isUserMenuOpen}
+            onClose={() => setMenuAnchorEl(null)}
+          >
+            <MenuItem
+              onClick={() => {
+                setMenuAnchorEl(null)
+                navigate('/profile')
+              }}
+            >
+              Profile
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                setMenuAnchorEl(null)
+                logout()
+                navigate('/login', { replace: true })
+              }}
+            >
+              Log out
+            </MenuItem>
+          </Menu>
         </Toolbar>
       </AppBar>
 

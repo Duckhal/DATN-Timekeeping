@@ -4,6 +4,8 @@ import {
   Alert,
   Box,
   Button,
+  IconButton,
+  InputAdornment,
   Link,
   Modal,
   Paper,
@@ -11,26 +13,31 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
+import VisibilityOffRoundedIcon from '@mui/icons-material/VisibilityOffRounded'
+import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded'
 
 type LoginModalProps = {
   open: boolean
   error: string
-  onLogin: (email: string, password: string) => void
+  isLoading: boolean
+  onLogin: (email: string, password: string) => Promise<void>
   onForgotPassword: () => void
 }
 
 export function LoginModal({
   open,
   error,
+  isLoading,
   onLogin,
   onForgotPassword,
 }: LoginModalProps) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    onLogin(email, password)
+    void onLogin(email, password)
   }
 
   return (
@@ -79,9 +86,25 @@ export function LoginModal({
               label="Password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               required
               fullWidth
+              slotProps={{
+                input: {
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        edge="end"
+                        onClick={() => setShowPassword((prev) => !prev)}
+                        onMouseDown={(event) => event.preventDefault()}
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showPassword ? <VisibilityOffRoundedIcon /> : <VisibilityRoundedIcon />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                },
+              }}
             />
 
             {error ? <Alert severity="warning">{error}</Alert> : null}
@@ -92,11 +115,12 @@ export function LoginModal({
                 type="button"
                 onClick={onForgotPassword}
                 underline="hover"
+                disabled={isLoading}
               >
                 Forgot password?
               </Link>
-              <Button type="submit" variant="contained" size="large">
-                Sign In
+              <Button type="submit" variant="contained" size="large" disabled={isLoading}>
+                {isLoading ? 'Signing in...' : 'Sign In'}
               </Button>
             </Stack>
           </Stack>

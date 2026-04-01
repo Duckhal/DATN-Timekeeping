@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Alert, Box, Snackbar } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 import { ForgotPasswordDialog } from '../components/auth/ForgotPasswordDialog'
@@ -7,14 +7,24 @@ import { useAuth } from '../hooks/useAuth'
 
 export function LoginPage() {
   const navigate = useNavigate()
-  const { login } = useAuth()
+  const { isAuthenticated, login } = useAuth()
 
   const [error, setError] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
   const [forgotOpen, setForgotOpen] = useState(false)
   const [snackOpen, setSnackOpen] = useState(false)
 
-  const handleLogin = (email: string, password: string) => {
-    const result = login(email, password)
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/portal', { replace: true })
+    }
+  }, [isAuthenticated, navigate])
+
+  const handleLogin = async (email: string, password: string) => {
+    setError('')
+    setIsLoading(true)
+    const result = await login(email, password)
+    setIsLoading(false)
 
     if (!result.ok) {
       setError(result.message ?? 'Sign-in failed.')
@@ -45,6 +55,7 @@ export function LoginPage() {
       <LoginModal
         open
         error={error}
+        isLoading={isLoading}
         onLogin={handleLogin}
         onForgotPassword={() => setForgotOpen(true)}
       />

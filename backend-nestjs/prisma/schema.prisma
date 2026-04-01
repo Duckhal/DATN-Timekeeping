@@ -16,16 +16,14 @@ datasource db {
 // ─────────────────────────────────────────────
 
 enum Role {
-  EMPLOYEE
   HR
+  EMPLOYEE
 }
 
-// Future enums (defined here for schema awareness, used in later modules)
 enum CalcStatus {
-  PENDING
-  CALCULATED
-  RECALCULATED
-  ERROR
+  SHORTHOURS
+  DAYOFF
+  COMPLETED
 }
 
 enum RequestType {
@@ -40,16 +38,106 @@ enum RequestStatus {
   REJECTED
 }
 
+enum AuthMethod {
+  RFID
+  FINGERPRINT
+}
+
 // ─────────────────────────────────────────────
 // 4.1 Employees — Core Identity
 // ─────────────────────────────────────────────
 model Employee {
-  emp_id           Int       @id @default(autoincrement())
-  fingerprint_id   String?   @unique
-  account_username String    @unique
+  employee_id      Int               @id @default(autoincrement()) @map("emp_id")
+  email            String            @unique @map("account_username")
   password_hash    String
   full_name        String
-  role             Role      @default(EMPLOYEE)
-  hourly_rate      Decimal   @db.Decimal(10, 2)
-  created_at       DateTime  @default(now())
+  role             Role              @default(EMPLOYEE)
+  date_of_birth    DateTime          @default(now()) @db.Date @map("DoB")
+  hourly_rate      Decimal           @db.Decimal(10, 2)
+  rfid_tag         String?           @unique
+  fingerprint_id   String?           @unique
+
+  daily_attendances DailyAttendance[]
+  monthly_limits    MonthlyLimit[]
+  requests          Request[]
+  checkin_logs      CheckInLog[]
+
+  @@map("Employee")
+}
+
+model Device {
+  device_id    Int          @id @default(autoincrement())
+  mac_addr     String       @unique
+  name         String?
+  type         String?
+
+  checkin_logs CheckInLog[]
+
+  @@map("Device")
+}
+
+model CheckInLog {
+  log_id       BigInt     @id @default(autoincrement())
+  employee_id  Int
+  device_id    Int
+  timestamp    DateTime
+  auth_method  AuthMethod
+  sync_hash    String     @unique @db.VarChar(255)
+
+  employee     Employee   @relation(fields: [employee_id], references: [employee_id], onDelete: Cascade)
+  device       Device     @relation(fields: [device_id], references: [device_id], onDelete: Restrict)
+
+  @@index([employee_id, timestamp])
+  @@index([device_id, timestamp])
+  @@map("CheckInLog")
+}
+
+model DailyAttendance {
+  attendance_id   BigInt       @id @default(autoincrement())
+  employee_id     Int
+  date            DateTime     @db.Date
+  checkin_time    DateTime?    @db.Time(0)
+  checkout_time   DateTime?    @db.Time(0)
+  missing_minutes Int          @default(0)
+  total_workday   Decimal      @default(0) @db.Decimal(5, 4)
+  status          CalcStatus   @default(COMPLETED)
+
+  employee        Employee     @relation(fields: [employee_id], references: [employee_id], onDelete: Cascade)
+  requests        Request[]
+
+  @@unique([employee_id, date])
+  @@index([employee_id])
+  @@map("DailyAttendance")
+}
+
+model MonthlyLimit {
+  limit_id           Int       @id @default(autoincrement())
+  employee_id        Int
+  month_year         String    @db.VarChar(7)
+  explanation_count  Int       @default(0)
+
+  employee           Employee  @relation(fields: [employee_id], references: [employee_id], onDelete: Cascade)
+
+  @@unique([employee_id, month_year])
+  @@index([employee_id])
+  @@map("MonthlyLimit")
+}
+
+model Request {
+  request_id     Int            @id @default(autoincrement())
+  employee_id    Int
+  attendance_id  BigInt?
+  type           RequestType
+  status         RequestStatus  @default(PENDING)
+  date           DateTime       @db.Date
+  start_time     DateTime?      @db.Time(0)
+  end_time       DateTime?      @db.Time(0)
+
+  employee       Employee       @relation(fields: [employee_id], references: [employee_id], onDelete: Cascade)
+  attendance     DailyAttendance? @relation(fields: [attendance_id], references: [attendance_id], onDelete: SetNull)
+
+  @@index([employee_id])
+  @@index([attendance_id])
+  @@index([date])
+  @@map("Request")
 }

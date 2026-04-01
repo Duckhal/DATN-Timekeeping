@@ -8,7 +8,7 @@ export type RoleValue = (typeof RoleValues)[number];
 export class CreateEmployeeDto {
   @IsString()
   @IsNotEmpty()
-  account_username!: string;
+  email!: string;
 
   @IsString()
   @MinLength(8)

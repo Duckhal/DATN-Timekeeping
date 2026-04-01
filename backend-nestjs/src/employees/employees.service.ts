@@ -11,13 +11,25 @@ import * as argon2 from 'argon2';
 
 // Fields returned in all public-facing responses — password_hash is never included
 const SAFE_SELECT = {
-  emp_id: true,
-  account_username: true,
+  employee_id: true,
+  email: true,
   full_name: true,
   role: true,
+  date_of_birth: true,
   hourly_rate: true,
+  rfid_tag: true,
   fingerprint_id: true,
-  created_at: true,
+};
+
+export type EmployeeSafe = {
+  employee_id: number;
+  email: string;
+  full_name: string;
+  role: 'EMPLOYEE' | 'HR';
+  date_of_birth: Date;
+  hourly_rate: unknown;
+  rfid_tag: string | null;
+  fingerprint_id: string | null;
 };
 
 @Injectable()
@@ -31,7 +43,7 @@ export class EmployeesService {
     try {
       return await this.prisma.employee.create({
         data: {
-          account_username: dto.account_username,
+          email: dto.email,
           password_hash,
           full_name: dto.full_name,
           role: dto.role,
@@ -42,7 +54,7 @@ export class EmployeesService {
     } catch (err) {
       if (err instanceof PrismaClientKnownRequestError && err.code === 'P2002') {
         throw new ConflictException(
-          `account_username "${dto.account_username}" is already taken.`,
+          `email "${dto.email}" is already taken.`,
         );
       }
       throw err;
@@ -55,7 +67,7 @@ export class EmployeesService {
 
     try {
       return await this.prisma.employee.update({
-        where: { emp_id: empId },
+        where: { employee_id: empId },
         data: { fingerprint_id: dto.fingerprint_id },
         select: SAFE_SELECT,
       });
@@ -77,7 +89,7 @@ export class EmployeesService {
   // Single employee lookup — used by employee's own profile view
   async findById(empId: number) {
     const employee = await this.prisma.employee.findUnique({
-      where: { emp_id: empId },
+      where: { employee_id: empId },
       select: SAFE_SELECT,
     });
     if (!employee) {
@@ -89,8 +101,27 @@ export class EmployeesService {
   // Internal-only — used by AuthService for login (includes password_hash)
   async findByUsername(username: string) {
     return this.prisma.employee.findUnique({
-      where: { account_username: username },
+      where: { email: username },
       // NOTE: intentionally returns full record with password_hash — auth use only
     });
+  }
+
+  // Internal-only — alias for auth login semantics where username is an email.
+  async findByEmail(email: string) {
+    return this.findByUsername(email);
+  }
+
+  // Shared mapper for API contracts that expose `email` and `employee_id` fields.
+  toPublicEmployee(employee: EmployeeSafe) {
+    return {
+      employee_id: employee.employee_id,
+      email: employee.email,
+      full_name: employee.full_name,
+      role: employee.role,
+      date_of_birth: employee.date_of_birth,
+      hourly_rate: employee.hourly_rate,
+      rfid_tag: employee.rfid_tag,
+      fingerprint_id: employee.fingerprint_id,
+    };
   }
 }
