@@ -9,4 +9,6 @@ export type Request = {
   date: Date;
   start_time: Date | null;
   end_time: Date | null;
+  created_at: Date;
+  updated_at: Date;
 };

@@ -2,7 +2,7 @@ import { createContext, useEffect, useMemo, useState } from 'react'
 import type { PropsWithChildren } from 'react'
 import { AxiosError } from 'axios'
 import { AUTH_TOKEN_KEY } from '../apis/axios'
-import { getMe, login as loginRequest } from '../apis/auth.service'
+import { getMe, login as loginRequest } from '../apis/authService'
 import type { Employee } from '../types/auth'
 
 type LoginResult = {

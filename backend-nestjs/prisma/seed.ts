@@ -4,10 +4,11 @@ import * as argon2 from 'argon2';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Starting database seed...');
+  console.log('Starting database seed...');
 
-  const hrEmail = 'test123@gmail.com';
-  const hrPassword = '12345678';
+  // Demo credentials (can be overridden from environment variables)
+  const hrEmail = process.env.SEED_HR_EMAIL ?? 'test123@gmail.com';
+  const hrPassword = process.env.SEED_HR_PASSWORD ?? '12345678';
 
   const password_hash = await argon2.hash(hrPassword);
 
@@ -16,25 +17,26 @@ async function main() {
     update: {
       password_hash,
       role: 'HR',
-      full_name: 'Test HR User',
+      full_name: 'Demo HR User',
       hourly_rate: 60.0,
-      rfid_tag: 'RFID-HR-001',
-      fingerprint_id: 'FP-HR-001',
+      // Keep hardware assignments empty for HR demo account
+      rfid_tag: null,
+      fingerprint_id: null,
       date_of_birth: new Date('1998-05-20'),
     },
     create: {
       email: hrEmail,
       password_hash,
-      full_name: 'Test HR User',
+      full_name: 'Demo HR User',
       role: 'HR',
       hourly_rate: 60.0,
-      rfid_tag: 'RFID-HR-001',
-      fingerprint_id: 'FP-HR-001',
+      rfid_tag: null,
+      fingerprint_id: null,
       date_of_birth: new Date('1998-05-20'),
     },
   });
 
-  console.log(`Seeded test HR user:`);
+  console.log('Seeded demo HR user:');
   console.log(`   Email: ${hrUser.email}`);
   console.log(`   Password: ${hrPassword}`);
   console.log(`   Role: ${hrUser.role}`);

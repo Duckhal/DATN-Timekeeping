@@ -9,7 +9,7 @@ import {
   Stack,
   Typography,
 } from '@mui/material'
-import { getMe } from '../apis/auth.service'
+import { getMe } from '../apis/authService'
 import type { Employee } from '../types/auth'
 
 function Field({ label, value }: { label: string; value: string }) {
@@ -102,7 +102,14 @@ export function ProfilePage() {
                 <Field label="Role" value={profile.role} />
               </Box>
               <Box>
-                <Field label="Date of Birth" value={new Date(profile.date_of_birth).toLocaleDateString()} />
+                <Field
+                  label="Date of Birth"
+                  value={
+                    profile.date_of_birth
+                      ? new Date(profile.date_of_birth).toLocaleDateString()
+                      : '-'
+                  }
+                />
               </Box>
               <Box>
                 <Field label="Hourly Rate" value={profile.hourly_rate} />

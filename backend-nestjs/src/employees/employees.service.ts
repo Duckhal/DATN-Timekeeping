@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { MapFingerprintDto } from './dto/map-fingerprint.dto';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
+import type { PublicEmployeeProfile } from '../types';
 import * as argon2 from 'argon2';
 
 // Fields returned in all public-facing responses — password_hash is never included
@@ -19,17 +20,12 @@ const SAFE_SELECT = {
   hourly_rate: true,
   rfid_tag: true,
   fingerprint_id: true,
+  created_at: true,
+  updated_at: true,
 };
 
-export type EmployeeSafe = {
-  employee_id: number;
-  email: string;
-  full_name: string;
-  role: 'EMPLOYEE' | 'HR';
-  date_of_birth: Date;
+type EmployeeSafe = Omit<PublicEmployeeProfile, 'hourly_rate'> & {
   hourly_rate: unknown;
-  rfid_tag: string | null;
-  fingerprint_id: string | null;
 };
 
 @Injectable()
@@ -112,16 +108,18 @@ export class EmployeesService {
   }
 
   // Shared mapper for API contracts that expose `email` and `employee_id` fields.
-  toPublicEmployee(employee: EmployeeSafe) {
+  toPublicEmployee(employee: EmployeeSafe): PublicEmployeeProfile {
     return {
       employee_id: employee.employee_id,
       email: employee.email,
       full_name: employee.full_name,
       role: employee.role,
       date_of_birth: employee.date_of_birth,
-      hourly_rate: employee.hourly_rate,
+      hourly_rate: String(employee.hourly_rate),
       rfid_tag: employee.rfid_tag,
       fingerprint_id: employee.fingerprint_id,
+      created_at: employee.created_at,
+      updated_at: employee.updated_at,
     };
   }
 }

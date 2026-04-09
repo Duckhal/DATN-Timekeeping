@@ -9,4 +9,6 @@ export type DailyAttendance = {
   missing_minutes: number;
   total_workday: string;
   status: CalcStatus;
+  created_at: Date;
+  updated_at: Date;
 };
