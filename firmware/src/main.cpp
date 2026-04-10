@@ -1,108 +1,121 @@
 #include <Arduino.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_ST7789.h>
-#include <Adafruit_Fingerprint.h>
-#include <SPI.h>
+#include <HTTPClient.h>
+#include <WiFi.h>
 
-// Screen pins (SPI)
-#define TFT_CS    5
-#define TFT_DC    15
-#define TFT_RST   4
+// ===== Device runtime configuration =====
+static const char *WIFI_SSID = "YOUR_WIFI_SSID";
+static const char *WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
+static const char *SERVER_URL = "http://192.168.1.100:3000/api";
+static const char *API_KEY = "REPLACE_WITH_DEVICE_API_KEY";
 
-// Fingerprint sensor pins (UART2)
-#define FP_RX 16
-#define FP_TX 17
+static unsigned long lastRegisterAttemptMs = 0;
+static unsigned long lastFingerprintCallbackMs = 0;
+static uint32_t fakeFingerprintCounter = 1000;
 
-Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, TFT_RST);
-// Use Serial2 for fingerprint sensor communication
-Adafruit_Fingerprint finger = Adafruit_Fingerprint(&Serial2);
+String getMacAddress() {
+  return WiFi.macAddress();
+}
+
+String getAuthorizationHeader() {
+  return String("Bearer ") + API_KEY;
+}
+
+bool postJson(const String &endpoint, const String &payload) {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("[HTTP] Skip request because WiFi is disconnected.");
+    return false;
+  }
+
+  HTTPClient http;
+  const String url = String(SERVER_URL) + endpoint;
+
+  http.begin(url);
+  http.addHeader("Content-Type", "application/json");
+  http.addHeader("Authorization", getAuthorizationHeader());
+
+  const int statusCode = http.POST(payload);
+  const String responseBody = http.getString();
+
+  Serial.printf("[HTTP] POST %s -> %d\n", url.c_str(), statusCode);
+  Serial.printf("[HTTP] Response: %s\n", responseBody.c_str());
+
+  http.end();
+
+  return statusCode >= 200 && statusCode < 300;
+}
+
+bool autoRegisterDevice() {
+  const String mac = getMacAddress();
+  const String name = String("ESP32-") + mac.substring(mac.length() - 5);
+  const String payload =
+      String("{\"mac_addr\":\"") + mac +
+      "\",\"name\":\"" + name + "\"}";
+
+  Serial.println("[Register] Sending device registration payload...");
+  return postJson("/hardware/devices/register", payload);
+}
+
+bool sendFingerprintCallback(const String &fingerprintId) {
+  const String mac = getMacAddress();
+  const String payload =
+      String("{\"mac_addr\":\"") + mac +
+      "\",\"fingerprint_id\":\"" + fingerprintId + "\"}";
+
+  Serial.printf("[Fingerprint] Sending callback for fingerprint_id=%s\n",
+                fingerprintId.c_str());
+  return postJson("/hardware/fingerprint/callback", payload);
+}
+
+void connectWifi() {
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+  Serial.print("[WiFi] Connecting");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println();
+  Serial.println("[WiFi] Connected successfully.");
+  Serial.printf("[WiFi] IP Address: %s\n", WiFi.localIP().toString().c_str());
+  Serial.printf("[WiFi] MAC Address: %s\n", getMacAddress().c_str());
+}
 
 void setup() {
   Serial.begin(115200);
-  
-  // 1. Initialize TFT display
-  tft.init(240, 320);
-  tft.invertDisplay(true);
-  tft.setRotation(2);
-  tft.fillScreen(ST77XX_BLACK);
-  tft.setTextColor(ST77XX_YELLOW);
-  tft.setTextSize(2);
-  tft.setCursor(10, 20);
-  tft.println("Fingerprint System");
+  delay(300);
 
-  // 2. Initialize fingerprint sensor
-  Serial2.begin(57600, SERIAL_8N1, FP_RX, FP_TX);
-  if (finger.verifyPassword()) {
-    tft.setTextColor(ST77XX_GREEN);
-    tft.println("Sensor Found!");
-  } else {
-    tft.setTextColor(ST77XX_RED);
-    tft.println("Sensor Not Found :(");
-    while (1) { delay(1); }
-  }
+  connectWifi();
+
+  const bool registered = autoRegisterDevice();
+  Serial.printf("[Register] Initial register result: %s\n",
+                registered ? "SUCCESS" : "FAILED");
+
+  lastRegisterAttemptMs = millis();
+  lastFingerprintCallbackMs = millis();
 }
 
 void loop() {
-  uint8_t p = finger.getImage();
-  
-  if (p == FINGERPRINT_OK) {
-    // 1. Send command to convert image to template (slot 1)
-    p = finger.image2Tz(1);
-    if (p != FINGERPRINT_OK) return;
-
-    tft.fillScreen(ST77XX_BLACK);
-    tft.setCursor(10, 20);
-    tft.setTextColor(ST77XX_CYAN);
-    tft.println("Fetching Template...");
-
-    // 2. Send command to get model
-    p = finger.getModel();
-    if (p == FINGERPRINT_OK) {
-      Serial.println("\n--- FINGERPRINT TEMPLATE START ---");
-      Serial.print("HEX: ");
-
-      tft.setCursor(0, 50);
-      tft.setTextColor(ST77XX_WHITE);
-      tft.setTextSize(1);
-
-      uint16_t count = 0;
-      uint32_t startTime = millis();
-
-      // Read bytes from Serial2 for a certain duration or until we get 512 bytes (fingerprint template size)
-      while ((count < 512) && ((millis() - startTime) < 1500)) {
-        if (Serial2.available()) {
-          uint8_t b = Serial2.read();
-          
-          // Print byte in HEX format to Serial
-          if (b < 0x10) Serial.print("0");
-          Serial.print(b, HEX);
-          
-          // Display a portion on the TFT screen for verification
-          if (count < 120) {
-            if (b < 0x10) tft.print("0");
-            tft.print(b, HEX);
-            tft.print(" ");
-          }
-          
-          count++;
-        }
-      }
-      Serial.println("\n--- FINGERPRINT TEMPLATE END ---");
-      Serial.printf("Total bytes received: %d\n", count);
-
-      tft.setCursor(10, 280);
-      tft.setTextColor(ST77XX_GREEN);
-      tft.printf("Done: %d bytes", count);
-    } else {
-      Serial.println("Error: Could not get model from sensor.");
-      tft.setTextColor(ST77XX_RED);
-      tft.println("Error getModel");
-    }
-
-    delay(5000); 
-    tft.fillScreen(ST77XX_BLACK);
-    tft.setCursor(10, 20);
-    tft.setTextColor(ST77XX_YELLOW);
-    tft.println("Ready to scan...");
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("[WiFi] Disconnected. Attempting reconnect...");
+    connectWifi();
   }
+
+  const unsigned long now = millis();
+
+  // Re-register periodically so backend always keeps the device active.
+  if (now - lastRegisterAttemptMs >= 60000UL) {
+    autoRegisterDevice();
+    lastRegisterAttemptMs = now;
+  }
+
+  // Demo callback: simulate a successful fingerprint scan every 45 seconds.
+  if (now - lastFingerprintCallbackMs >= 45000UL) {
+    const String fakeFingerprintId = String("F-") + String(fakeFingerprintCounter++);
+    sendFingerprintCallback(fakeFingerprintId);
+    lastFingerprintCallbackMs = now;
+  }
+
+  delay(100);
 }

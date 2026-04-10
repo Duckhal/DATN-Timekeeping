@@ -1,13 +1,17 @@
 import {
+  BadRequestException,
   ConflictException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { MapFingerprintDto } from './dto/map-fingerprint.dto';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
-import type { PublicEmployeeProfile } from '../types';
+import type { Cache } from 'cache-manager';
+import type { AuthMethod, PublicEmployeeProfile } from '../types';
 import * as argon2 from 'argon2';
 
 // Fields returned in all public-facing responses — password_hash is never included
@@ -30,7 +34,10 @@ type EmployeeSafe = Omit<PublicEmployeeProfile, 'hourly_rate'> & {
 
 @Injectable()
 export class EmployeesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+  ) {}
 
   // UC0b — HR creates a new employee account
   async create(dto: CreateEmployeeDto) {
@@ -57,7 +64,7 @@ export class EmployeesService {
     }
   }
 
-  // UC0b — HR maps a fingerprint hardware ID to an existing employee
+  // UC0b — HR maps a fingerprint credential ID to an existing employee
   async mapFingerprint(empId: number, dto: MapFingerprintDto) {
     await this.findById(empId); // throws NotFoundException if not found
 
@@ -80,6 +87,16 @@ export class EmployeesService {
   // HR dashboard — list all employees (no password_hash)
   async findAll() {
     return this.prisma.employee.findMany({ select: SAFE_SELECT });
+  }
+
+  async findUnassignedCredentials() {
+    return this.prisma.employee.findMany({
+      where: {
+        OR: [{ rfid_tag: null }, { fingerprint_id: null }],
+      },
+      select: SAFE_SELECT,
+      orderBy: { employee_id: 'asc' },
+    });
   }
 
   // Single employee lookup — used by employee's own profile view
@@ -107,6 +124,68 @@ export class EmployeesService {
     return this.findByUsername(email);
   }
 
+  async assignRfid(empId: number, rfidTag: string) {
+    await this.findById(empId);
+
+    try {
+      return await this.prisma.employee.update({
+        where: { employee_id: empId },
+        data: { rfid_tag: rfidTag },
+        select: SAFE_SELECT,
+      });
+    } catch (err) {
+      if (err instanceof PrismaClientKnownRequestError && err.code === 'P2002') {
+        throw new ConflictException(`rfid_tag "${rfidTag}" is already assigned.`);
+      }
+      throw err;
+    }
+  }
+
+  async confirmFingerprintFromCache(empId: number, deviceId: number) {
+    await this.findById(empId);
+
+    const cacheKey = this.getFingerprintEnrollCacheKey(deviceId);
+    const fingerprintId = await this.cacheManager.get<string>(cacheKey);
+
+    if (!fingerprintId) {
+      throw new BadRequestException('Chua nhan duoc van tay tu thiet bi');
+    }
+
+    try {
+      const updatedEmployee = await this.prisma.employee.update({
+        where: { employee_id: empId },
+        data: { fingerprint_id: fingerprintId },
+        select: SAFE_SELECT,
+      });
+
+      await this.cacheManager.del(cacheKey);
+
+      return updatedEmployee;
+    } catch (err) {
+      if (err instanceof PrismaClientKnownRequestError && err.code === 'P2002') {
+        throw new ConflictException(
+          `fingerprint_id "${fingerprintId}" is already assigned.`,
+        );
+      }
+      throw err;
+    }
+  }
+
+  async removeCredentialIdentifier(empId: number, type: AuthMethod) {
+    await this.findById(empId);
+
+    const data =
+      type === 'RFID'
+        ? { rfid_tag: null }
+        : { fingerprint_id: null };
+
+    return this.prisma.employee.update({
+      where: { employee_id: empId },
+      data,
+      select: SAFE_SELECT,
+    });
+  }
+
   // Shared mapper for API contracts that expose `email` and `employee_id` fields.
   toPublicEmployee(employee: EmployeeSafe): PublicEmployeeProfile {
     return {
@@ -121,5 +200,9 @@ export class EmployeesService {
       created_at: employee.created_at,
       updated_at: employee.updated_at,
     };
+  }
+
+  private getFingerprintEnrollCacheKey(deviceId: number) {
+    return `enroll_finger_${deviceId}`;
   }
 }
