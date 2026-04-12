@@ -1,94 +1,143 @@
 #include <Arduino.h>
-#include <HTTPClient.h>
 #include <WiFi.h>
 
-// ===== Device runtime configuration =====
-static const char *WIFI_SSID = "YOUR_WIFI_SSID";
-static const char *WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
-static const char *SERVER_URL = "http://192.168.1.100:3000/api";
-static const char *API_KEY = "REPLACE_WITH_DEVICE_API_KEY";
+#include "TFTScreen/DisplayManager.h"
+#include "WifiManager/ConfigStore.h"
+#include "WifiManager/NetworkManager.h"
+#include "WifiManager/PortalServer.h"
 
-static unsigned long lastRegisterAttemptMs = 0;
-static unsigned long lastFingerprintCallbackMs = 0;
-static uint32_t fakeFingerprintCounter = 1000;
+namespace {
+constexpr uint8_t kBootButtonPin = 0;
+constexpr uint32_t kBootHoldToResetMs = 5000;
+constexpr uint32_t kWifiConnectTimeoutMs = 10000;
+constexpr uint32_t kRegisterIntervalMs = 60000;
+constexpr uint32_t kFingerprintDemoIntervalMs = 45000;
+constexpr const char *kApiKey = "REPLACE_WITH_DEVICE_API_KEY";
 
-String getMacAddress() {
-  return WiFi.macAddress();
+DisplayManager display;
+ConfigStore configStore;
+NetworkManager network;
+PortalServer portalServer;
+
+DeviceConfig currentConfig;
+
+bool isPortalMode = false;
+bool shouldRestartAfterSave = false;
+uint32_t restartScheduledAtMs = 0;
+
+unsigned long lastRegisterAttemptMs = 0;
+unsigned long lastFingerprintCallbackMs = 0;
+uint32_t fakeFingerprintCounter = 1000;
+
+bool isBootPressTracking = false;
+uint32_t bootPressedAtMs = 0;
+
+String buildPortalSsidFromMac(const String &macAddress) {
+  String compactMac = macAddress;
+  compactMac.replace(":", "");
+  return String("ESP32-Timekeeping-") + compactMac;
 }
 
-String getAuthorizationHeader() {
-  return String("Bearer ") + API_KEY;
+void scheduleRestart() {
+  shouldRestartAfterSave = true;
+  restartScheduledAtMs = millis();
 }
 
-bool postJson(const String &endpoint, const String &payload) {
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("[HTTP] Skip request because WiFi is disconnected.");
+void enterPortalMode() {
+  const String apSsid = buildPortalSsidFromMac(network.getMacAddress());
+  network.startConfigAp(apSsid);
+
+  display.showNotConnected(apSsid, "192.168.4.1");
+
+  portalServer.begin([](const DeviceConfig &config) {
+    const bool saved = configStore.save(config);
+    if (!saved) {
+      Serial.println("[Config] Failed to save configuration.");
+      return;
+    }
+
+    Serial.println("[Config] Configuration saved. Restart is scheduled.");
+    scheduleRestart();
+  });
+
+  isPortalMode = true;
+  Serial.printf("[AP] Portal started. SSID=%s IP=%s\n", apSsid.c_str(),
+                network.apIpAddress().c_str());
+}
+
+void clearSettingsAndReboot() {
+  Serial.println("[Reset] BOOT button held for 5s. Clearing settings...");
+  configStore.clearAll();
+  display.showSettingsCleared();
+  delay(1200);
+  ESP.restart();
+}
+
+void processBootButtonReset() {
+  const bool isPressed = digitalRead(kBootButtonPin) == LOW;
+
+  if (isPressed && !isBootPressTracking) {
+    isBootPressTracking = true;
+    bootPressedAtMs = millis();
+    return;
+  }
+
+  if (!isPressed) {
+    isBootPressTracking = false;
+    return;
+  }
+
+  if (isBootPressTracking && (millis() - bootPressedAtMs >= kBootHoldToResetMs)) {
+    clearSettingsAndReboot();
+  }
+}
+
+bool tryConnectUsingSavedConfig() {
+  currentConfig = configStore.load();
+  if (!currentConfig.isValid()) {
+    Serial.println("[Config] No valid saved configuration found.");
     return false;
   }
 
-  HTTPClient http;
-  const String url = String(SERVER_URL) + endpoint;
+  Serial.printf("[WiFi] Connecting to SSID=%s\n", currentConfig.ssid.c_str());
+  const bool connected =
+      network.connectStation(currentConfig, kWifiConnectTimeoutMs);
 
-  http.begin(url);
-  http.addHeader("Content-Type", "application/json");
-  http.addHeader("Authorization", getAuthorizationHeader());
-
-  const int statusCode = http.POST(payload);
-  const String responseBody = http.getString();
-
-  Serial.printf("[HTTP] POST %s -> %d\n", url.c_str(), statusCode);
-  Serial.printf("[HTTP] Response: %s\n", responseBody.c_str());
-
-  http.end();
-
-  return statusCode >= 200 && statusCode < 300;
-}
-
-bool autoRegisterDevice() {
-  const String mac = getMacAddress();
-  const String name = String("ESP32-") + mac.substring(mac.length() - 5);
-  const String payload =
-      String("{\"mac_addr\":\"") + mac +
-      "\",\"name\":\"" + name + "\"}";
-
-  Serial.println("[Register] Sending device registration payload...");
-  return postJson("/hardware/devices/register", payload);
-}
-
-bool sendFingerprintCallback(const String &fingerprintId) {
-  const String mac = getMacAddress();
-  const String payload =
-      String("{\"mac_addr\":\"") + mac +
-      "\",\"fingerprint_id\":\"" + fingerprintId + "\"}";
-
-  Serial.printf("[Fingerprint] Sending callback for fingerprint_id=%s\n",
-                fingerprintId.c_str());
-  return postJson("/hardware/fingerprint/callback", payload);
-}
-
-void connectWifi() {
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-
-  Serial.print("[WiFi] Connecting");
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
+  if (!connected) {
+    Serial.println("[WiFi] Failed to connect within timeout.");
+    return false;
   }
 
-  Serial.println();
   Serial.println("[WiFi] Connected successfully.");
   Serial.printf("[WiFi] IP Address: %s\n", WiFi.localIP().toString().c_str());
-  Serial.printf("[WiFi] MAC Address: %s\n", getMacAddress().c_str());
+  Serial.printf("[WiFi] MAC Address: %s\n", network.getMacAddress().c_str());
+  return true;
 }
+}  // namespace
 
 void setup() {
   Serial.begin(115200);
   delay(300);
 
-  connectWifi();
+  pinMode(kBootButtonPin, INPUT_PULLUP);
 
-  const bool registered = autoRegisterDevice();
+  display.begin();
+
+  if (!configStore.begin()) {
+    Serial.println("[Config] Preferences init failed. Entering portal mode.");
+    enterPortalMode();
+    return;
+  }
+
+  if (!tryConnectUsingSavedConfig()) {
+    enterPortalMode();
+    return;
+  }
+
+  display.showWelcome();
+
+  const bool registered =
+      network.autoRegisterDevice(currentConfig, String(kApiKey));
   Serial.printf("[Register] Initial register result: %s\n",
                 registered ? "SUCCESS" : "FAILED");
 
@@ -97,23 +146,39 @@ void setup() {
 }
 
 void loop() {
+  processBootButtonReset();
+
+  if (isPortalMode) {
+    portalServer.handleClient();
+
+    if (shouldRestartAfterSave && millis() - restartScheduledAtMs >= 800) {
+      ESP.restart();
+    }
+
+    delay(20);
+    return;
+  }
+
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("[WiFi] Disconnected. Attempting reconnect...");
-    connectWifi();
+    Serial.println("[WiFi] Disconnected. Trying to reconnect...");
+    if (!network.connectStation(currentConfig, kWifiConnectTimeoutMs)) {
+      Serial.println("[WiFi] Reconnect failed. Switching to portal mode.");
+      enterPortalMode();
+      return;
+    }
   }
 
   const unsigned long now = millis();
 
-  // Re-register periodically so backend always keeps the device active.
-  if (now - lastRegisterAttemptMs >= 60000UL) {
-    autoRegisterDevice();
+  if (now - lastRegisterAttemptMs >= kRegisterIntervalMs) {
+    network.autoRegisterDevice(currentConfig, String(kApiKey));
     lastRegisterAttemptMs = now;
   }
 
-  // Demo callback: simulate a successful fingerprint scan every 45 seconds.
-  if (now - lastFingerprintCallbackMs >= 45000UL) {
+  if (now - lastFingerprintCallbackMs >= kFingerprintDemoIntervalMs) {
     const String fakeFingerprintId = String("F-") + String(fakeFingerprintCounter++);
-    sendFingerprintCallback(fakeFingerprintId);
+    network.sendFingerprintCallback(currentConfig, String(kApiKey),
+                                    fakeFingerprintId);
     lastFingerprintCallbackMs = now;
   }
 
