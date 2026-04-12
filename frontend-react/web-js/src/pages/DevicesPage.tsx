@@ -129,12 +129,11 @@ export function DevicesPage() {
     return devices.map((device) => (
       <TableRow key={device.device_id} hover>
         <TableCell>{device.device_id}</TableCell>
-        <TableCell>{device.name}</TableCell>
+        <TableCell>{device.name ?? '-'}</TableCell>
         <TableCell>{device.mac_addr}</TableCell>
         <TableCell>
           <Chip size="small" label={device.status} color={statusColor(device.status)} />
         </TableCell>
-        <TableCell>{new Date(device.updated_at).toLocaleString()}</TableCell>
         <TableCell>
           <Stack direction="row" spacing={1}>
             <Button
@@ -142,7 +141,7 @@ export function DevicesPage() {
               variant="outlined"
               onClick={() => {
                 setEditingDevice(device)
-                setNameDraft(device.name)
+                setNameDraft(device.name ?? '')
                 setStatusDraft(device.status)
               }}
             >
@@ -258,7 +257,6 @@ export function DevicesPage() {
                   <TableCell>Name</TableCell>
                   <TableCell>MAC Address</TableCell>
                   <TableCell>Status</TableCell>
-                  <TableCell>Updated At</TableCell>
                   <TableCell>Actions</TableCell>
                 </TableRow>
               </TableHead>

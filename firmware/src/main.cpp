@@ -33,6 +33,8 @@ bool isPortalMode = false;
 bool shouldRestartAfterSave = false;
 uint32_t restartScheduledAtMs = 0;
 RegistrationState registrationState = RegistrationState::PENDING;
+NetworkManager::RemoteDeviceStatus remoteDeviceStatus =
+  NetworkManager::RemoteDeviceStatus::UNKNOWN;
 
 unsigned long lastRegisterAttemptMs = 0;
 unsigned long lastFingerprintCallbackMs = 0;
@@ -129,24 +131,61 @@ bool consumeBootShortPressEvent() {
   return true;
 }
 
+void performRemoteWipeAndReboot() {
+  Serial.println("[RemoteWipe] Device denied by server (403/404). Resetting local config...");
+  display.showDeviceDeletedFactoryResetting();
+  configStore.clearAll();
+  delay(2000);
+  ESP.restart();
+}
+
+void showRemoteModeIfChanged(NetworkManager::RemoteDeviceStatus nextStatus) {
+  if (remoteDeviceStatus == nextStatus) {
+    return;
+  }
+
+  remoteDeviceStatus = nextStatus;
+
+  if (nextStatus == NetworkManager::RemoteDeviceStatus::ACTIVE) {
+    display.showConnectedSuccessfully();
+    delay(1000);
+    display.showWelcome();
+    return;
+  }
+
+  if (nextStatus == NetworkManager::RemoteDeviceStatus::INACTIVE) {
+    display.showInactiveMode();
+    return;
+  }
+
+  if (nextStatus == NetworkManager::RemoteDeviceStatus::MAINTENANCE) {
+    display.showMaintenanceMode();
+    return;
+  }
+}
+
 bool runAutoRegistration() {
-  const bool registered =
+  const NetworkManager::RegisterHeartbeatResult registerResult =
       network.autoRegisterDevice(currentConfig, String(kApiKey));
-  const int lastStatusCode = network.getLastHttpStatusCode();
+  const int lastStatusCode = registerResult.httpStatusCode;
   Serial.printf("[Register] Register result: %s\n",
-                registered ? "SUCCESS" : "FAILED");
+                registerResult.ok ? "SUCCESS" : "FAILED");
   Serial.printf("[Register] Last HTTP status: %d\n", lastStatusCode);
 
-  if (!registered) {
+  if (lastStatusCode == 403 || lastStatusCode == 404) {
+    performRemoteWipeAndReboot();
+    return false;
+  }
+
+  if (!registerResult.ok) {
     registrationState = RegistrationState::FAILED;
+    remoteDeviceStatus = NetworkManager::RemoteDeviceStatus::UNKNOWN;
     display.showServerConnectionFailed(lastStatusCode);
     return false;
   }
 
   registrationState = RegistrationState::SUCCESS;
-  display.showConnectedSuccessfully();
-  delay(1000);
-  display.showWelcome();
+  showRemoteModeIfChanged(registerResult.remoteStatus);
   return true;
 }
 
@@ -243,6 +282,7 @@ void loop() {
   }
 
   if (registrationState == RegistrationState::SUCCESS &&
+      remoteDeviceStatus == NetworkManager::RemoteDeviceStatus::ACTIVE &&
       now - lastFingerprintCallbackMs >= kFingerprintDemoIntervalMs) {
     const String fakeFingerprintId = String("F-") + String(fakeFingerprintCounter++);
     network.sendFingerprintCallback(currentConfig, String(kApiKey),

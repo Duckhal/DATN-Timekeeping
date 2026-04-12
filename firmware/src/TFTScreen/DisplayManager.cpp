@@ -69,6 +69,24 @@ void DisplayManager::showConnectedSuccessfully() {
   drawCenteredText("Successfully", 124, ST77XX_GREEN, 3);
 }
 
+void DisplayManager::showInactiveMode() {
+  clearScreen(ST77XX_BLACK);
+  drawCenteredText("Status:", 90, ST77XX_WHITE, 2);
+  drawCenteredText("INACTIVE", 120, ST77XX_RED, 3);
+}
+
+void DisplayManager::showMaintenanceMode() {
+  clearScreen(ST77XX_BLACK);
+  drawCenteredText("MAINTENANCE", 90, ST77XX_YELLOW, 3);
+  drawCenteredText("MODE", 126, ST77XX_YELLOW, 3);
+}
+
+void DisplayManager::showDeviceDeletedFactoryResetting() {
+  clearScreen(ST77XX_BLACK);
+  drawCenteredText("Device Deleted", 86, ST77XX_RED, 2);
+  drawCenteredText("Factory Resetting...", 118, ST77XX_RED, 2);
+}
+
 void DisplayManager::showWelcome() {
   clearScreen(ST77XX_BLACK);
   drawCenteredText("Welcome", 95, ST77XX_WHITE, 4);

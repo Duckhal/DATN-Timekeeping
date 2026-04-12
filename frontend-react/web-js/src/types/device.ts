@@ -6,8 +6,6 @@ export type Device = {
   mac_addr: string
   name: string
   status: DeviceStatus
-  created_at: string
-  updated_at: string
 }
 
 export type UpdateDevicePayload = {

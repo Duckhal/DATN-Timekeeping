@@ -17,8 +17,8 @@ export class DevicesController {
 
   @Get()
   @Roles('HR')
-  findAllActive() {
-    return this.devicesService.findAllActive();
+  findAll() {
+    return this.devicesService.findAll();
   }
 
   @Patch(':id')

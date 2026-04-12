@@ -10,17 +10,49 @@ import { UpdateDeviceDto } from './dto/update-device.dto';
 export class DevicesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async upsertByMac(mac_addr: string, name: string) {
-    return this.prisma.device.upsert({
-      where: { mac_addr },
-      update: { name, status: 'ACTIVE' },
-      create: { mac_addr, name, status: 'ACTIVE' },
-    });
+  private toHeartbeatResponse(device: {
+    device_id: number;
+    status: 'ACTIVE' | 'INACTIVE' | 'MAINTENANCE' | null;
+    name: string | null;
+  }) {
+    return {
+      device_id: device.device_id,
+      status: device.status ?? 'ACTIVE',
+      name: device.name,
+    };
   }
 
-  async findAllActive() {
+  async registerHeartbeat(mac_addr: string, name: string) {
+    const existing = await this.prisma.device.findUnique({
+      where: { mac_addr },
+    });
+
+    if (!existing) {
+      const created = await this.prisma.device.create({
+        data: {
+          mac_addr,
+          name,
+          status: 'ACTIVE',
+        },
+      });
+
+      return this.toHeartbeatResponse(created);
+    }
+
+    if (existing.status === 'INACTIVE' || existing.status === 'MAINTENANCE') {
+      return this.toHeartbeatResponse(existing);
+    }
+
+    const updated = await this.prisma.device.update({
+      where: { device_id: existing.device_id },
+      data: { name },
+    });
+
+    return this.toHeartbeatResponse(updated);
+  }
+
+  async findAll() {
     return this.prisma.device.findMany({
-      where: { status: 'ACTIVE' },
       orderBy: { device_id: 'asc' },
     });
   }

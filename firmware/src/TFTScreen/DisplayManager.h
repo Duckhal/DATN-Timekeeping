@@ -18,6 +18,9 @@ class DisplayManager {
   void showNotConnected(const String &apSsid, const String &portalIp);
   void showServerConnectionFailed(int httpStatusCode);
   void showConnectedSuccessfully();
+  void showInactiveMode();
+  void showMaintenanceMode();
+  void showDeviceDeletedFactoryResetting();
   void showWelcome();
   void showSettingsCleared();
 

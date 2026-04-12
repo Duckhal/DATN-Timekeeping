@@ -13,7 +13,7 @@ export class CredentialsService {
   ) {}
 
   async registerDevice(mac_addr: string, name: string) {
-    return this.devicesService.upsertByMac(mac_addr, name);
+    return this.devicesService.registerHeartbeat(mac_addr, name);
   }
 
   async startFingerprintEnroll(deviceId: number) {
