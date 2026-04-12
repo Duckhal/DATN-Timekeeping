@@ -4,6 +4,8 @@ import { ProtectedRoute } from './components/auth/ProtectedRoute'
 import { LoginPage } from './pages/LoginPage'
 import { PortalPage } from './pages/PortalPage'
 import { ProfilePage } from './pages/ProfilePage'
+import { DevicesPage } from './pages/DevicesPage'
+import { CredentialsPage } from './pages/CredentialsPage'
 import { AppThemeProvider } from './providers/theme/AppThemeProvider'
 
 function App() {
@@ -16,6 +18,8 @@ function App() {
             <Route element={<ProtectedRoute />}>
               <Route path="/portal" element={<PortalPage />} />
               <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/devices" element={<DevicesPage />} />
+              <Route path="/credentials" element={<CredentialsPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>

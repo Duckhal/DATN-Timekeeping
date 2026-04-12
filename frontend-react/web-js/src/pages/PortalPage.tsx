@@ -50,6 +50,16 @@ export function PortalPage() {
           <Typography fontWeight={700} sx={{ flexGrow: 1 }}>
             Portal
           </Typography>
+          {profile?.role === 'HR' ? (
+            <>
+              <Button size="small" onClick={() => navigate('/devices')} sx={{ textTransform: 'none' }}>
+                Devices
+              </Button>
+              <Button size="small" onClick={() => navigate('/credentials')} sx={{ textTransform: 'none' }}>
+                Credentials
+              </Button>
+            </>
+          ) : null}
           <IconButton>
             <MenuRoundedIcon />
           </IconButton>
