@@ -40,6 +40,35 @@ void DisplayManager::showNotConnected(const String &apSsid, const String &portal
   tft_.println(portalIp);
 }
 
+void DisplayManager::showServerConnectionFailed(int httpStatusCode) {
+  clearScreen(ST77XX_BLACK);
+  tft_.setTextSize(2);
+  tft_.setTextColor(ST77XX_RED);
+  tft_.setCursor(8, 26);
+  tft_.println("Server connection");
+  tft_.setCursor(8, 50);
+  tft_.println("failed.");
+
+  tft_.setTextColor(ST77XX_WHITE);
+  tft_.setTextSize(1);
+  tft_.setCursor(8, 80);
+  if (httpStatusCode > 0) {
+    tft_.printf("HTTP error: %d\n", httpStatusCode);
+  } else {
+    tft_.println("HTTP error: timeout/no response");
+  }
+  tft_.setCursor(8, 96);
+  tft_.println("Please press BOOT");
+  tft_.setCursor(8, 112);
+  tft_.println("button once to retry.");
+}
+
+void DisplayManager::showConnectedSuccessfully() {
+  clearScreen(ST77XX_BLACK);
+  drawCenteredText("Connected", 90, ST77XX_GREEN, 3);
+  drawCenteredText("Successfully", 124, ST77XX_GREEN, 3);
+}
+
 void DisplayManager::showWelcome() {
   clearScreen(ST77XX_BLACK);
   drawCenteredText("Welcome", 95, ST77XX_WHITE, 4);

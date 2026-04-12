@@ -39,9 +39,12 @@ void PortalServer::handleSave() {
   const String password = server_.arg("password");
   const String serverIp = server_.arg("server_ip");
   const String serverPortStr = server_.arg("server_port");
+  const String deviceName = server_.arg("device_name");
 
-  if (ssid.length() == 0 || serverIp.length() == 0 || serverPortStr.length() == 0) {
-    server_.send(400, "text/plain", "SSID, Server IP and Server Port are required.");
+  if (ssid.length() == 0 || password.length() == 0 || serverIp.length() == 0 ||
+      serverPortStr.length() == 0 || deviceName.length() == 0) {
+    server_.send(400, "text/plain",
+                 "SSID, Password, Server IP, Server Port and Device Name are required.");
     return;
   }
 
@@ -56,6 +59,7 @@ void PortalServer::handleSave() {
   config.password = password;
   config.serverIp = serverIp;
   config.serverPort = static_cast<uint16_t>(parsedPort);
+  config.deviceName = deviceName;
 
   onSave_(config);
 
@@ -88,9 +92,10 @@ String PortalServer::renderHtml() const {
   html += "<p>Configure WiFi and server connection.</p>";
   html += "<form method='POST' action='/save'>";
   html += "<label for='ssid'>WiFi SSID</label><input id='ssid' name='ssid' required>";
-  html += "<label for='password'>WiFi Password</label><input id='password' name='password' type='password'>";
+  html += "<label for='password'>WiFi Password</label><input id='password' name='password' type='password' required>";
   html += "<label for='server_ip'>Server IP</label><input id='server_ip' name='server_ip' placeholder='192.168.1.100' required>";
   html += "<label for='server_port'>Server Port</label><input id='server_port' name='server_port' value='3000' inputmode='numeric' required>";
+  html += "<label for='device_name'>Device Name</label><input id='device_name' name='device_name' placeholder='Timekeeping-FrontDesk' required>";
   html += "<button type='submit'>Save & Restart</button>";
   html += "</form><div class='hint'>After submit, device restarts automatically.</div>";
   html += "</div></div></body></html>";

@@ -12,6 +12,7 @@ class NetworkManager {
   void startConfigAp(const String &ssid);
   String apIpAddress() const;
   String getMacAddress() const;
+    int getLastHttpStatusCode() const;
 
   bool autoRegisterDevice(const DeviceConfig &config, const String &apiKey) const;
   bool sendFingerprintCallback(const DeviceConfig &config, const String &apiKey,
@@ -22,4 +23,6 @@ class NetworkManager {
   String buildAuthorization(const String &apiKey) const;
   bool postJson(const DeviceConfig &config, const String &apiKey,
                 const String &endpoint, const String &payload) const;
+
+    mutable int lastHttpStatusCode_ = 0;
 };

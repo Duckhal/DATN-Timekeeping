@@ -10,6 +10,7 @@ DeviceConfig ConfigStore::load() const {
   config.password = preferences_.getString(kKeyPass, "");
   config.serverIp = preferences_.getString(kKeyServerIp, "");
   config.serverPort = static_cast<uint16_t>(preferences_.getUShort(kKeyServerPort, 3000));
+  config.deviceName = preferences_.getString(kKeyDeviceName, "");
   return config;
 }
 
@@ -21,6 +22,9 @@ bool ConfigStore::save(const DeviceConfig &config) {
        preferences_.putString(kKeyServerIp, config.serverIp) ==
            config.serverIp.length();
   ok = ok && preferences_.putUShort(kKeyServerPort, config.serverPort) > 0;
+  ok = ok &&
+       preferences_.putString(kKeyDeviceName, config.deviceName) ==
+           config.deviceName.length();
   return ok;
 }
 

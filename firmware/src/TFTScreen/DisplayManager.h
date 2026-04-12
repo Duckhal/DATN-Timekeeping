@@ -16,6 +16,8 @@ class DisplayManager {
   void begin();
   void clearScreen(uint16_t color = ST77XX_BLACK);
   void showNotConnected(const String &apSsid, const String &portalIp);
+  void showServerConnectionFailed(int httpStatusCode);
+  void showConnectedSuccessfully();
   void showWelcome();
   void showSettingsCleared();
 

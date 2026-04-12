@@ -29,6 +29,10 @@ String NetworkManager::getMacAddress() const {
   return WiFi.macAddress();
 }
 
+int NetworkManager::getLastHttpStatusCode() const {
+  return lastHttpStatusCode_;
+}
+
 String NetworkManager::buildBaseUrl(const DeviceConfig &config) const {
   return String("http://") + config.serverIp + ":" + String(config.serverPort) +
          "/api";
@@ -43,6 +47,7 @@ bool NetworkManager::postJson(const DeviceConfig &config, const String &apiKey,
                               const String &payload) const {
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("[HTTP] Skip request because WiFi is disconnected.");
+    lastHttpStatusCode_ = -1;
     return false;
   }
 
@@ -55,6 +60,7 @@ bool NetworkManager::postJson(const DeviceConfig &config, const String &apiKey,
 
   const int statusCode = http.POST(payload);
   const String responseBody = http.getString();
+  lastHttpStatusCode_ = statusCode;
 
   Serial.printf("[HTTP] POST %s -> %d\n", url.c_str(), statusCode);
   Serial.printf("[HTTP] Response: %s\n", responseBody.c_str());
@@ -67,9 +73,8 @@ bool NetworkManager::postJson(const DeviceConfig &config, const String &apiKey,
 bool NetworkManager::autoRegisterDevice(const DeviceConfig &config,
                                         const String &apiKey) const {
   const String mac = getMacAddress();
-  const String name = String("ESP32-") + mac.substring(mac.length() - 5);
   const String payload = String("{\"mac_addr\":\"") + mac +
-                         "\",\"name\":\"" + name + "\"}";
+                         "\",\"name\":\"" + config.deviceName + "\"}";
 
   Serial.println("[Register] Sending device registration payload...");
   return postJson(config, apiKey, "/devices/register", payload);

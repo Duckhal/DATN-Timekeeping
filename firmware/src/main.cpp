@@ -9,10 +9,18 @@
 namespace {
 constexpr uint8_t kBootButtonPin = 0;
 constexpr uint32_t kBootHoldToResetMs = 5000;
+constexpr uint32_t kBootDebounceMs = 45;
+constexpr uint32_t kBootShortPressMinMs = 40;
 constexpr uint32_t kWifiConnectTimeoutMs = 10000;
 constexpr uint32_t kRegisterIntervalMs = 60000;
 constexpr uint32_t kFingerprintDemoIntervalMs = 45000;
-constexpr const char *kApiKey = "REPLACE_WITH_DEVICE_API_KEY";
+constexpr const char *kApiKey = "THIS_IS_A_STRONG_DEVICE_API_KEY_REPLACE_BEFORE_PRODUCTION";
+
+enum class RegistrationState : uint8_t {
+  PENDING,
+  FAILED,
+  SUCCESS,
+};
 
 DisplayManager display;
 ConfigStore configStore;
@@ -24,13 +32,18 @@ DeviceConfig currentConfig;
 bool isPortalMode = false;
 bool shouldRestartAfterSave = false;
 uint32_t restartScheduledAtMs = 0;
+RegistrationState registrationState = RegistrationState::PENDING;
 
 unsigned long lastRegisterAttemptMs = 0;
 unsigned long lastFingerprintCallbackMs = 0;
 uint32_t fakeFingerprintCounter = 1000;
 
-bool isBootPressTracking = false;
+bool bootRawPressed = false;
+bool bootStablePressed = false;
+bool bootLongPressHandled = false;
+bool bootShortPressEvent = false;
 uint32_t bootPressedAtMs = 0;
+uint32_t bootLastBounceMs = 0;
 
 String buildPortalSsidFromMac(const String &macAddress) {
   String compactMac = macAddress;
@@ -73,23 +86,68 @@ void clearSettingsAndReboot() {
   ESP.restart();
 }
 
-void processBootButtonReset() {
-  const bool isPressed = digitalRead(kBootButtonPin) == LOW;
+void updateBootButtonEvents() {
+  const bool rawPressed = digitalRead(kBootButtonPin) == LOW;
 
-  if (isPressed && !isBootPressTracking) {
-    isBootPressTracking = true;
-    bootPressedAtMs = millis();
+  if (rawPressed != bootRawPressed) {
+    bootRawPressed = rawPressed;
+    bootLastBounceMs = millis();
+  }
+
+  if (millis() - bootLastBounceMs < kBootDebounceMs) {
     return;
   }
 
-  if (!isPressed) {
-    isBootPressTracking = false;
-    return;
+  if (bootStablePressed != bootRawPressed) {
+    bootStablePressed = bootRawPressed;
+
+    if (bootStablePressed) {
+      bootPressedAtMs = millis();
+      bootLongPressHandled = false;
+    } else {
+      const uint32_t heldMs = millis() - bootPressedAtMs;
+      if (!bootLongPressHandled && heldMs >= kBootShortPressMinMs &&
+          heldMs < kBootHoldToResetMs) {
+        bootShortPressEvent = true;
+      }
+    }
   }
 
-  if (isBootPressTracking && (millis() - bootPressedAtMs >= kBootHoldToResetMs)) {
+  if (bootStablePressed && !bootLongPressHandled &&
+      millis() - bootPressedAtMs >= kBootHoldToResetMs) {
+    bootLongPressHandled = true;
     clearSettingsAndReboot();
   }
+}
+
+bool consumeBootShortPressEvent() {
+  if (!bootShortPressEvent) {
+    return false;
+  }
+
+  bootShortPressEvent = false;
+  return true;
+}
+
+bool runAutoRegistration() {
+  const bool registered =
+      network.autoRegisterDevice(currentConfig, String(kApiKey));
+  const int lastStatusCode = network.getLastHttpStatusCode();
+  Serial.printf("[Register] Register result: %s\n",
+                registered ? "SUCCESS" : "FAILED");
+  Serial.printf("[Register] Last HTTP status: %d\n", lastStatusCode);
+
+  if (!registered) {
+    registrationState = RegistrationState::FAILED;
+    display.showServerConnectionFailed(lastStatusCode);
+    return false;
+  }
+
+  registrationState = RegistrationState::SUCCESS;
+  display.showConnectedSuccessfully();
+  delay(1000);
+  display.showWelcome();
+  return true;
 }
 
 bool tryConnectUsingSavedConfig() {
@@ -134,19 +192,14 @@ void setup() {
     return;
   }
 
-  display.showWelcome();
-
-  const bool registered =
-      network.autoRegisterDevice(currentConfig, String(kApiKey));
-  Serial.printf("[Register] Initial register result: %s\n",
-                registered ? "SUCCESS" : "FAILED");
+  runAutoRegistration();
 
   lastRegisterAttemptMs = millis();
   lastFingerprintCallbackMs = millis();
 }
 
 void loop() {
-  processBootButtonReset();
+  updateBootButtonEvents();
 
   if (isPortalMode) {
     portalServer.handleClient();
@@ -159,6 +212,12 @@ void loop() {
     return;
   }
 
+  if (registrationState == RegistrationState::FAILED &&
+      consumeBootShortPressEvent()) {
+    Serial.println("[Register] BOOT short press detected. Retrying registration...");
+    runAutoRegistration();
+  }
+
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("[WiFi] Disconnected. Trying to reconnect...");
     if (!network.connectStation(currentConfig, kWifiConnectTimeoutMs)) {
@@ -166,16 +225,25 @@ void loop() {
       enterPortalMode();
       return;
     }
+
+    if (registrationState != RegistrationState::SUCCESS) {
+      runAutoRegistration();
+    }
   }
 
   const unsigned long now = millis();
 
-  if (now - lastRegisterAttemptMs >= kRegisterIntervalMs) {
-    network.autoRegisterDevice(currentConfig, String(kApiKey));
+  if (registrationState == RegistrationState::SUCCESS &&
+      now - lastRegisterAttemptMs >= kRegisterIntervalMs) {
+    const bool reRegisterOk = runAutoRegistration();
+    if (!reRegisterOk) {
+      return;
+    }
     lastRegisterAttemptMs = now;
   }
 
-  if (now - lastFingerprintCallbackMs >= kFingerprintDemoIntervalMs) {
+  if (registrationState == RegistrationState::SUCCESS &&
+      now - lastFingerprintCallbackMs >= kFingerprintDemoIntervalMs) {
     const String fakeFingerprintId = String("F-") + String(fakeFingerprintCounter++);
     network.sendFingerprintCallback(currentConfig, String(kApiKey),
                                     fakeFingerprintId);
