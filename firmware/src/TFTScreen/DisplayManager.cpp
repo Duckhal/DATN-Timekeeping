@@ -81,6 +81,11 @@ void DisplayManager::showMaintenanceMode() {
   drawCenteredText("MODE", 126, ST77XX_YELLOW, 3);
 }
 
+void DisplayManager::showNotifyingServer() {
+  clearScreen(ST77XX_BLACK);
+  drawCenteredText("Notifying Server...", 106, ST77XX_YELLOW, 2);
+}
+
 void DisplayManager::showDeviceDeletedFactoryResetting() {
   clearScreen(ST77XX_BLACK);
   drawCenteredText("Device Deleted", 86, ST77XX_RED, 2);

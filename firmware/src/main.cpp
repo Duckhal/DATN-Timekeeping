@@ -82,6 +82,18 @@ void enterPortalMode() {
 
 void clearSettingsAndReboot() {
   Serial.println("[Reset] BOOT button held for 5s. Clearing settings...");
+
+  display.showNotifyingServer();
+
+  if (currentConfig.isValid()) {
+    const bool notifyOk =
+        network.notifyFactoryReset(currentConfig, String(kApiKey), 3000);
+    Serial.printf("[FactoryReset] Notify result: %s\n",
+                  notifyOk ? "SUCCESS" : "FAILED");
+  } else {
+    Serial.println("[FactoryReset] Skip notify because runtime config is invalid.");
+  }
+
   configStore.clearAll();
   display.showSettingsCleared();
   delay(1200);

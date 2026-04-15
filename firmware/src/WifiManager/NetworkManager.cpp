@@ -161,6 +161,35 @@ NetworkManager::RegisterHeartbeatResult NetworkManager::autoRegisterDevice(
   return result;
 }
 
+bool NetworkManager::notifyFactoryReset(const DeviceConfig &config,
+                                        const String &apiKey,
+                                        uint32_t timeoutMs) const {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("[FactoryReset] Skip notify because WiFi is disconnected.");
+    lastHttpStatusCode_ = -1;
+    return false;
+  }
+
+  const String url = buildBaseUrl(config) + "/devices/factory-reset";
+  const String payload = String("{\"mac_addr\":\"") + getMacAddress() + "\"}";
+
+  HTTPClient http;
+  http.setTimeout(timeoutMs);
+  http.begin(url);
+  http.addHeader("Content-Type", "application/json");
+  http.addHeader("Authorization", buildAuthorization(apiKey));
+
+  const int statusCode = http.POST(payload);
+  const String responseBody = http.getString();
+  http.end();
+
+  lastHttpStatusCode_ = statusCode;
+  Serial.printf("[HTTP] POST %s -> %d\n", url.c_str(), statusCode);
+  Serial.printf("[HTTP] Response: %s\n", responseBody.c_str());
+
+  return statusCode >= 200 && statusCode < 300;
+}
+
 bool NetworkManager::sendFingerprintCallback(const DeviceConfig &config,
                                              const String &apiKey,
                                              const String &fingerprintId) const {

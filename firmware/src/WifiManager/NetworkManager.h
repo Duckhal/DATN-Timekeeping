@@ -31,6 +31,8 @@ class NetworkManager {
 
   RegisterHeartbeatResult autoRegisterDevice(const DeviceConfig &config,
                                              const String &apiKey) const;
+  bool notifyFactoryReset(const DeviceConfig &config, const String &apiKey,
+                          uint32_t timeoutMs) const;
   bool sendFingerprintCallback(const DeviceConfig &config, const String &apiKey,
                                const String &fingerprintId) const;
 

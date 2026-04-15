@@ -20,6 +20,7 @@ class DisplayManager {
   void showConnectedSuccessfully();
   void showInactiveMode();
   void showMaintenanceMode();
+  void showNotifyingServer();
   void showDeviceDeletedFactoryResetting();
   void showWelcome();
   void showSettingsCleared();
