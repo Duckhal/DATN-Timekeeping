@@ -51,6 +51,21 @@ export class DevicesService {
     return this.toHeartbeatResponse(updated);
   }
 
+  async acknowledgeFactoryReset(mac_addr: string) {
+    const existing = await this.prisma.device.findUnique({
+      where: { mac_addr },
+    });
+
+    if (existing) {
+      await this.prisma.device.update({
+        where: { device_id: existing.device_id },
+        data: { status: 'INACTIVE' },
+      });
+    }
+
+    return { message: 'Device reset acknowledged' };
+  }
+
   async findAll() {
     return this.prisma.device.findMany({
       orderBy: { device_id: 'asc' },
