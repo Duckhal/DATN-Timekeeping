@@ -3,6 +3,7 @@ import {
   ConflictException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
@@ -34,6 +35,8 @@ type EmployeeSafe = Omit<PublicEmployeeProfile, 'hourly_rate'> & {
 
 @Injectable()
 export class EmployeesService {
+  private readonly logger = new Logger(EmployeesService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
@@ -146,6 +149,10 @@ export class EmployeesService {
 
     const cacheKey = this.getFingerprintEnrollCacheKey(deviceId);
     const fingerprintId = await this.cacheManager.get<string>(cacheKey);
+
+    this.logger.log(
+      `[Enroll] Confirm request empId=${empId} deviceId=${deviceId} cacheKey=${cacheKey} cacheHit=${Boolean(fingerprintId)}`,
+    );
 
     if (!fingerprintId) {
       throw new BadRequestException('Chua nhan duoc van tay tu thiet bi');

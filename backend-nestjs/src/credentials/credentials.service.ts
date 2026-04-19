@@ -7,6 +7,7 @@ import { MqttService } from '../mqtt/mqtt.service';
 @Injectable()
 export class CredentialsService {
   private readonly logger = new Logger(CredentialsService.name);
+  private static readonly FINGERPRINT_CACHE_TTL_MS = 120_000;
 
   constructor(
     private readonly devicesService: DevicesService,
@@ -41,7 +42,15 @@ export class CredentialsService {
     }
 
     const cacheKey = this.getFingerprintEnrollCacheKey(device.device_id);
-    await this.cacheManager.set(cacheKey, fingerprintId, 120);
+    await this.cacheManager.set(
+      cacheKey,
+      fingerprintId,
+      CredentialsService.FINGERPRINT_CACHE_TTL_MS,
+    );
+
+    this.logger.log(
+      `[Enroll] Cached fingerprint callback key=${cacheKey} value=${fingerprintId} ttlMs=${CredentialsService.FINGERPRINT_CACHE_TTL_MS}`,
+    );
 
     return {
       status: 'success',
