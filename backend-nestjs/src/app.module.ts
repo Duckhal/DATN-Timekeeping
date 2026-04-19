@@ -8,6 +8,7 @@ import { EmployeesModule } from './employees/employees.module';
 import { AuthModule } from './auth/auth.module';
 import { DevicesModule } from './devices/devices.module';
 import { CredentialsModule } from './credentials/credentials.module';
+import { MqttModule } from './mqtt/mqtt.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { CredentialsModule } from './credentials/credentials.module';
     AuthModule,
     DevicesModule,
     CredentialsModule,
+    MqttModule,
   ],
   controllers: [AppController],
   providers: [AppService],

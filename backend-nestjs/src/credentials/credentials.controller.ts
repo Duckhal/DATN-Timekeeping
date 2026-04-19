@@ -13,7 +13,6 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { ApiKeyGuard } from '../auth/guards/api-key.guard';
 import { CredentialsService } from './credentials.service';
 import { RegisterDeviceDto } from './dto/register-device.dto';
-import { StartFingerprintEnrollDto } from './dto/start-fingerprint-enroll.dto';
 import { FingerprintCallbackDto } from './dto/fingerprint-callback.dto';
 
 @Controller('devices')
@@ -31,7 +30,6 @@ export class CredentialsController {
   @Roles('HR')
   startFingerprintEnroll(
     @Param('id', ParseIntPipe) id: number,
-    @Body() _dto: StartFingerprintEnrollDto,
   ) {
     return this.credentialsService.startFingerprintEnroll(id);
   }

@@ -2,6 +2,7 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { Cache } from 'cache-manager';
 import { DevicesService } from '../devices/devices.service';
+import { MqttService } from '../mqtt/mqtt.service';
 
 @Injectable()
 export class CredentialsService {
@@ -9,6 +10,7 @@ export class CredentialsService {
 
   constructor(
     private readonly devicesService: DevicesService,
+    private readonly mqttService: MqttService,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
 
@@ -17,13 +19,18 @@ export class CredentialsService {
   }
 
   async startFingerprintEnroll(deviceId: number) {
-    await this.devicesService.findById(deviceId);
+    const device = await this.devicesService.findById(deviceId);
+
+    const topic = `timekeeping/device/${device.mac_addr}/command`;
+    await this.mqttService.publish(topic, {
+      command: 'ENROLL_FINGERPRINT',
+    });
 
     this.logger.log(
-      `[Command] Sending FINGERPRINT_ENROLL_START to device ${deviceId}`,
+      `[Command] MQTT ENROLL_FINGERPRINT published for device ${deviceId} (${device.mac_addr})`,
     );
 
-    return { message: 'Command sent to device' };
+    return { message: 'Enrollment command published via MQTT' };
   }
 
   async cacheFingerprint(mac_addr: string, fingerprintId: string) {
