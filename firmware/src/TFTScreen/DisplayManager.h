@@ -22,6 +22,11 @@ class DisplayManager {
   void showMaintenanceMode();
   void showNotifyingServer();
   void showDeviceDeletedFactoryResetting();
+  void showEnrollModePlaceFinger();
+  void showEnrollModeRemoveFinger();
+  void showEnrollModePlaceSameFinger();
+  void showEnrollSuccess(uint16_t id);
+  void showEnrollFailed();
   void showWelcome();
   void showSettingsCleared();
 

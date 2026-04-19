@@ -92,6 +92,36 @@ void DisplayManager::showDeviceDeletedFactoryResetting() {
   drawCenteredText("Factory Resetting...", 118, ST77XX_RED, 2);
 }
 
+void DisplayManager::showEnrollModePlaceFinger() {
+  clearScreen(ST77XX_BLACK);
+  drawCenteredText("ENROLL MODE", 70, ST77XX_CYAN, 3);
+  drawCenteredText("Place finger...", 120, ST77XX_WHITE, 2);
+}
+
+void DisplayManager::showEnrollModeRemoveFinger() {
+  clearScreen(ST77XX_BLACK);
+  drawCenteredText("ENROLL MODE", 70, ST77XX_CYAN, 3);
+  drawCenteredText("Remove finger...", 120, ST77XX_WHITE, 2);
+}
+
+void DisplayManager::showEnrollModePlaceSameFinger() {
+  clearScreen(ST77XX_BLACK);
+  drawCenteredText("ENROLL MODE", 62, ST77XX_CYAN, 3);
+  drawCenteredText("Place same", 108, ST77XX_WHITE, 2);
+  drawCenteredText("finger again...", 136, ST77XX_WHITE, 2);
+}
+
+void DisplayManager::showEnrollSuccess(uint16_t id) {
+  clearScreen(ST77XX_BLACK);
+  drawCenteredText("Scan Success!", 88, ST77XX_GREEN, 2);
+  drawCenteredText(String("ID: ") + id, 124, ST77XX_GREEN, 2);
+}
+
+void DisplayManager::showEnrollFailed() {
+  clearScreen(ST77XX_BLACK);
+  drawCenteredText("Enroll Failed!", 106, ST77XX_RED, 2);
+}
+
 void DisplayManager::showWelcome() {
   clearScreen(ST77XX_BLACK);
   drawCenteredText("Welcome", 95, ST77XX_WHITE, 4);
