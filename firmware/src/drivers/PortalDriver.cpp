@@ -1,8 +1,9 @@
-#include "PortalServer.h"
+#include "drivers/PortalDriver.h"
 
-PortalServer::PortalServer(uint16_t port) : server_(port) {}
+namespace tk::drivers {
+PortalDriver::PortalDriver(uint16_t port) : server_(port) {}
 
-void PortalServer::begin(const SaveHandler &saveHandler) {
+void PortalDriver::begin(const SaveHandler& saveHandler) {
   onSave_ = saveHandler;
 
   server_.on("/", HTTP_GET, [this]() { handleRoot(); });
@@ -13,7 +14,7 @@ void PortalServer::begin(const SaveHandler &saveHandler) {
   isRunning_ = true;
 }
 
-void PortalServer::handleClient() {
+void PortalDriver::handleClient() {
   if (!isRunning_) {
     return;
   }
@@ -21,15 +22,15 @@ void PortalServer::handleClient() {
   server_.handleClient();
 }
 
-bool PortalServer::isRunning() const {
+bool PortalDriver::isRunning() const {
   return isRunning_;
 }
 
-void PortalServer::handleRoot() {
+void PortalDriver::handleRoot() {
   server_.send(200, "text/html", renderHtml());
 }
 
-void PortalServer::handleSave() {
+void PortalDriver::handleSave() {
   if (!onSave_) {
     server_.send(500, "text/plain", "Save handler not available");
     return;
@@ -54,7 +55,7 @@ void PortalServer::handleSave() {
     return;
   }
 
-  DeviceConfig config;
+  models::DeviceConfig config;
   config.ssid = ssid;
   config.password = password;
   config.serverIp = serverIp;
@@ -68,7 +69,7 @@ void PortalServer::handleSave() {
                "<h2>Saved successfully</h2><p>Device is restarting...</p></body></html>");
 }
 
-String PortalServer::renderHtml() const {
+String PortalDriver::renderHtml() const {
   String html;
   html.reserve(2500);
 
@@ -102,3 +103,4 @@ String PortalServer::renderHtml() const {
 
   return html;
 }
+}  // namespace tk::drivers
