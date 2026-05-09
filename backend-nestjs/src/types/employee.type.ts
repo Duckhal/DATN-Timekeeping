@@ -9,7 +9,7 @@ export type Employee = {
   date_of_birth: Date | null;
   hourly_rate: string;
   rfid_tag: string | null;
-  fingerprint_id: string | null;
+  template_fingerprint: string | null;
   created_at: Date;
   updated_at: Date;
 };

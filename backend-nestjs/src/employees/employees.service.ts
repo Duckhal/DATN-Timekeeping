@@ -1,17 +1,11 @@
 import {
-  BadRequestException,
   ConflictException,
-  Inject,
   Injectable,
-  Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
-import { MapFingerprintDto } from './dto/map-fingerprint.dto';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
-import type { Cache } from 'cache-manager';
 import type { AuthMethod, PublicEmployeeProfile } from '../types';
 import * as argon2 from 'argon2';
 
@@ -24,7 +18,7 @@ const SAFE_SELECT = {
   date_of_birth: true,
   hourly_rate: true,
   rfid_tag: true,
-  fingerprint_id: true,
+  template_fingerprint: true,
   created_at: true,
   updated_at: true,
 };
@@ -35,12 +29,7 @@ type EmployeeSafe = Omit<PublicEmployeeProfile, 'hourly_rate'> & {
 
 @Injectable()
 export class EmployeesService {
-  private readonly logger = new Logger(EmployeesService.name);
-
-  constructor(
-    private readonly prisma: PrismaService,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   // UC0b — HR creates a new employee account
   async create(dto: CreateEmployeeDto) {
@@ -67,26 +56,6 @@ export class EmployeesService {
     }
   }
 
-  // UC0b — HR maps a fingerprint credential ID to an existing employee
-  async mapFingerprint(empId: number, dto: MapFingerprintDto) {
-    await this.findById(empId); // throws NotFoundException if not found
-
-    try {
-      return await this.prisma.employee.update({
-        where: { employee_id: empId },
-        data: { fingerprint_id: dto.fingerprint_id },
-        select: SAFE_SELECT,
-      });
-    } catch (err) {
-      if (err instanceof PrismaClientKnownRequestError && err.code === 'P2002') {
-        throw new ConflictException(
-          `fingerprint_id "${dto.fingerprint_id}" is already mapped to another employee.`,
-        );
-      }
-      throw err;
-    }
-  }
-
   // HR dashboard — list all employees (no password_hash)
   async findAll() {
     return this.prisma.employee.findMany({ select: SAFE_SELECT });
@@ -95,7 +64,7 @@ export class EmployeesService {
   async findUnassignedCredentials() {
     return this.prisma.employee.findMany({
       where: {
-        OR: [{ rfid_tag: null }, { fingerprint_id: null }],
+        OR: [{ rfid_tag: null }, { template_fingerprint: null }],
       },
       select: SAFE_SELECT,
       orderBy: { employee_id: 'asc' },
@@ -144,52 +113,25 @@ export class EmployeesService {
     }
   }
 
-  async confirmFingerprintFromCache(empId: number, deviceId: number) {
-    await this.findById(empId);
-
-    const cacheKey = this.getFingerprintEnrollCacheKey(deviceId);
-    const fingerprintId = await this.cacheManager.get<string>(cacheKey);
-
-    this.logger.log(
-      `[Enroll] Confirm request empId=${empId} deviceId=${deviceId} cacheKey=${cacheKey} cacheHit=${Boolean(fingerprintId)}`,
-    );
-
-    if (!fingerprintId) {
-      throw new BadRequestException('Chua nhan duoc van tay tu thiet bi');
-    }
-
-    try {
-      const updatedEmployee = await this.prisma.employee.update({
-        where: { employee_id: empId },
-        data: { fingerprint_id: fingerprintId },
-        select: SAFE_SELECT,
-      });
-
-      await this.cacheManager.del(cacheKey);
-
-      return updatedEmployee;
-    } catch (err) {
-      if (err instanceof PrismaClientKnownRequestError && err.code === 'P2002') {
-        throw new ConflictException(
-          `fingerprint_id "${fingerprintId}" is already assigned.`,
-        );
-      }
-      throw err;
-    }
-  }
-
   async removeCredentialIdentifier(empId: number, type: AuthMethod) {
     await this.findById(empId);
 
-    const data =
-      type === 'RFID'
-        ? { rfid_tag: null }
-        : { fingerprint_id: null };
+    if (type === 'RFID') {
+      return this.prisma.employee.update({
+        where: { employee_id: empId },
+        data: { rfid_tag: null },
+        select: SAFE_SELECT,
+      });
+    }
 
-    return this.prisma.employee.update({
-      where: { employee_id: empId },
-      data,
-      select: SAFE_SELECT,
+    // FINGERPRINT: clear master template AND all per-device mappings
+    return this.prisma.$transaction(async (tx) => {
+      await tx.mapping.deleteMany({ where: { employee_id: empId } });
+      return tx.employee.update({
+        where: { employee_id: empId },
+        data: { template_fingerprint: null },
+        select: SAFE_SELECT,
+      });
     });
   }
 
@@ -203,13 +145,9 @@ export class EmployeesService {
       date_of_birth: employee.date_of_birth,
       hourly_rate: String(employee.hourly_rate),
       rfid_tag: employee.rfid_tag,
-      fingerprint_id: employee.fingerprint_id,
+      template_fingerprint: employee.template_fingerprint,
       created_at: employee.created_at,
       updated_at: employee.updated_at,
     };
-  }
-
-  private getFingerprintEnrollCacheKey(deviceId: number) {
-    return `enroll_finger_${deviceId}`;
   }
 }

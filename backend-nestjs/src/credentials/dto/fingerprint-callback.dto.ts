@@ -8,4 +8,7 @@ export class FingerprintCallbackDto {
   @IsString()
   @IsNotEmpty()
   fingerprint_id!: string;
+
+  @IsString()
+  template_data!: string;
 }

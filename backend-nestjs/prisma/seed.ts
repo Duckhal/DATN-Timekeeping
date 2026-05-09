@@ -21,7 +21,7 @@ async function main() {
       hourly_rate: 60.0,
       // Keep hardware assignments empty for HR demo account
       rfid_tag: null,
-      fingerprint_id: null,
+      template_fingerprint: null,
       date_of_birth: new Date('1998-05-20'),
     },
     create: {
@@ -31,7 +31,7 @@ async function main() {
       role: 'HR',
       hourly_rate: 60.0,
       rfid_tag: null,
-      fingerprint_id: null,
+      template_fingerprint: null,
       date_of_birth: new Date('1998-05-20'),
     },
   });

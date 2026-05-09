@@ -14,6 +14,7 @@ import { ApiKeyGuard } from '../auth/guards/api-key.guard';
 import { CredentialsService } from './credentials.service';
 import { RegisterDeviceDto } from './dto/register-device.dto';
 import { FingerprintCallbackDto } from './dto/fingerprint-callback.dto';
+import { SyncMappingCallbackDto } from './dto/sync-mapping-callback.dto';
 
 @Controller('devices')
 export class CredentialsController {
@@ -26,12 +27,13 @@ export class CredentialsController {
     return this.credentialsService.registerDevice(dto.mac_addr, dto.name);
   }
 
-  @Post(':id/enroll-fingerprint')
+  @Post(':id/enroll-fingerprint/:employeeId')
   @Roles('HR')
   startFingerprintEnroll(
     @Param('id', ParseIntPipe) id: number,
+    @Param('employeeId', ParseIntPipe) employeeId: number,
   ) {
-    return this.credentialsService.startFingerprintEnroll(id);
+    return this.credentialsService.startFingerprintEnroll(id, employeeId);
   }
 
   @Public()
@@ -39,6 +41,18 @@ export class CredentialsController {
   @HttpCode(HttpStatus.OK)
   @Post('fingerprint-callback')
   callbackFingerprint(@Body() dto: FingerprintCallbackDto) {
-    return this.credentialsService.cacheFingerprint(dto.mac_addr, dto.fingerprint_id);
+    return this.credentialsService.cacheFingerprint(dto.mac_addr, dto.fingerprint_id, dto.template_data);
+  }
+
+  @Public()
+  @UseGuards(ApiKeyGuard)
+  @HttpCode(HttpStatus.OK)
+  @Post('sync-mapping-callback')
+  syncMappingCallback(@Body() dto: SyncMappingCallbackDto) {
+    return this.credentialsService.upsertSyncMapping(
+      dto.mac_addr,
+      dto.employee_id,
+      dto.fingerprint_id,
+    );
   }
 }
