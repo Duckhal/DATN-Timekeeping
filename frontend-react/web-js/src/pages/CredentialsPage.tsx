@@ -28,7 +28,6 @@ import {
 } from '@mui/material'
 import {
   attachRfidCard,
-  confirmFingerprint,
   getActiveDevices,
   getUnassignedCredentialEmployees,
   removeCredential,
@@ -49,7 +48,6 @@ type EnrollState = {
   selectedDeviceId: number | ''
   isStarting: boolean
   hasStarted: boolean
-  isConfirming: boolean
 }
 
 const DEFAULT_SNACKBAR: SnackbarState = {
@@ -64,7 +62,6 @@ const DEFAULT_ENROLL: EnrollState = {
   selectedDeviceId: '',
   isStarting: false,
   hasStarted: false,
-  isConfirming: false,
 }
 
 function getApiErrorMessage(error: unknown, fallback: string): string {
@@ -87,7 +84,7 @@ function hasMissingCredential(employee: UnassignedCredentialEmployee, type: 'RFI
     return !employee.rfid_tag
   }
 
-  return !employee.fingerprint_id
+  return !employee.template_fingerprint
 }
 
 export function CredentialsPage() {
@@ -223,12 +220,12 @@ export function CredentialsPage() {
 
     try {
       setEnroll((prev) => ({ ...prev, isStarting: true }))
-      await startFingerprintEnroll(enroll.selectedDeviceId)
+      await startFingerprintEnroll(enroll.selectedDeviceId, enroll.employee.employee_id)
       setEnroll((prev) => ({ ...prev, hasStarted: true }))
       setSnackbar({
         open: true,
         severity: 'info',
-        message: 'Scanning command sent to the selected device.',
+        message: 'Scanning command sent. The device will save the fingerprint automatically when done.',
       })
     } catch (error) {
       setSnackbar({
@@ -241,43 +238,9 @@ export function CredentialsPage() {
     }
   }
 
-  const handleConfirmFingerprint = async () => {
-    if (!enroll.employee || enroll.selectedDeviceId === '') {
-      return
-    }
-
-    try {
-      setEnroll((prev) => ({ ...prev, isConfirming: true }))
-      await confirmFingerprint(enroll.employee.employee_id, {
-        device_id: enroll.selectedDeviceId,
-      })
-      closeEnrollDialog()
-      await loadPageData()
-      setSnackbar({
-        open: true,
-        severity: 'success',
-        message: 'Fingerprint saved successfully.',
-      })
-    } catch (error) {
-      const axiosError = error as AxiosError
-
-      if (axiosError.response?.status === 400) {
-        setSnackbar({
-          open: true,
-          severity: 'error',
-          message: 'No signal received, please try placing your hands again.',
-        })
-        return
-      }
-
-      setSnackbar({
-        open: true,
-        severity: 'error',
-        message: getApiErrorMessage(error, 'Unable to confirm fingerprint.'),
-      })
-    } finally {
-      setEnroll((prev) => ({ ...prev, isConfirming: false }))
-    }
+  const handleRefreshAfterEnroll = async () => {
+    closeEnrollDialog()
+    await loadPageData()
   }
 
   const rows = useMemo(() => {
@@ -340,7 +303,7 @@ export function CredentialsPage() {
               size="small"
               color="error"
               variant="outlined"
-              disabled={!employee.fingerprint_id || isRemovingCredential}
+              disabled={!employee.template_fingerprint || isRemovingCredential}
               onClick={() => void handleRemoveCredential(employee.employee_id, 'FINGERPRINT')}
             >
               Remove fingerprint
@@ -454,23 +417,22 @@ export function CredentialsPage() {
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <CircularProgress size={20} />
                   <Typography variant="body2">
-                    Please ask the staff to place your hand on the scanner..
+                    Please ask the staff to place your hand on the scanner. The device saves automatically.
                   </Typography>
                 </Box>
                 <Button
                   variant="contained"
                   color="success"
-                  onClick={handleConfirmFingerprint}
-                  disabled={enroll.isConfirming}
+                  onClick={() => void handleRefreshAfterEnroll()}
                 >
-                  {enroll.isConfirming ? 'Saving...' : 'Scan complete - Confirm save'}
+                  Done - Refresh list
                 </Button>
               </Stack>
             ) : null}
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={closeEnrollDialog} disabled={enroll.isStarting || enroll.isConfirming}>
+          <Button onClick={closeEnrollDialog} disabled={enroll.isStarting}>
             Close
           </Button>
         </DialogActions>

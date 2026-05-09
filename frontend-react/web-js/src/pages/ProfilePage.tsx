@@ -118,7 +118,7 @@ export function ProfilePage() {
                 <Field label="RFID Tag" value={profile.rfid_tag ?? '-'} />
               </Box>
               <Box>
-                <Field label="Fingerprint ID" value={profile.fingerprint_id ?? '-'} />
+                <Field label="Fingerprint" value={profile.template_fingerprint ? 'Registered' : '-'} />
               </Box>
             </Box>
           </CardContent>

@@ -1,7 +1,6 @@
 import apiClient from './axios'
 import type {
   AssignRfidPayload,
-  ConfirmFingerprintPayload,
   CredentialType,
   StartEnrollResponse,
   UnassignedCredentialEmployee,
@@ -25,13 +24,14 @@ export async function removeCredential(employeeId: number, type: CredentialType)
   return response.data
 }
 
-export async function startFingerprintEnroll(deviceId: number): Promise<StartEnrollResponse> {
-  const response = await apiClient.post<StartEnrollResponse>(`/devices/${deviceId}/enroll-fingerprint`, {})
-  return response.data
-}
-
-export async function confirmFingerprint(employeeId: number, payload: ConfirmFingerprintPayload): Promise<UnassignedCredentialEmployee> {
-  const response = await apiClient.patch<UnassignedCredentialEmployee>(`/employees/${employeeId}/credentials/fingerprint`, payload)
+export async function startFingerprintEnroll(
+  deviceId: number,
+  employeeId: number,
+): Promise<StartEnrollResponse> {
+  const response = await apiClient.post<StartEnrollResponse>(
+    `/devices/${deviceId}/enroll-fingerprint/${employeeId}`,
+    {},
+  )
   return response.data
 }
 

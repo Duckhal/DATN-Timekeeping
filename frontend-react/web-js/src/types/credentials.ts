@@ -6,10 +6,6 @@ export type AssignRfidPayload = {
   rfid_tag: string
 }
 
-export type ConfirmFingerprintPayload = {
-  device_id: number
-}
-
 export type CredentialType = 'RFID' | 'FINGERPRINT'
 
 export type StartEnrollResponse = {
