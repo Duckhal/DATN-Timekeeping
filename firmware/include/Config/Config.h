@@ -27,6 +27,10 @@ constexpr uint32_t kFingerprintRetryIntervalMs = 5000;
 }  // namespace timing
 
 namespace network {
+constexpr const char* kDefaultSsid = "GalaxyA53";
+constexpr const char* kDefaultPassword = "oysl4029";
+constexpr const char* kDefaultServerIp = "192.168.35.16";
+constexpr const char* kDefaultDeviceName = "ESP32-Timekeeping-Device";
 constexpr uint16_t kDefaultServerPort = 3000;
 constexpr uint16_t kMqttPort = 1883;
 constexpr const char* kApiBasePath = "/api";
@@ -37,7 +41,7 @@ constexpr const char* kDeviceApiKey = "THIS_IS_A_STRONG_DEVICE_API_KEY_REPLACE_B
 }  // namespace network
 
 namespace fingerprint {
-constexpr uint8_t kMaxTemplateId = 127;
+constexpr uint16_t kMaxTemplateId = 127;
 constexpr uint32_t kBaudRate = 57600;
 }  // namespace fingerprint
 

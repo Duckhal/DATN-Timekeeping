@@ -16,12 +16,12 @@ bool ConfigService::begin() {
 
 models::DeviceConfig ConfigService::load() const {
   models::DeviceConfig config;
-  config.ssid = store_.getString(kKeySsid, "");
-  config.password = store_.getString(kKeyPass, "");
-  config.serverIp = store_.getString(kKeyServerIp, "");
+  config.ssid = store_.getString(kKeySsid, config::network::kDefaultSsid);
+  config.password = store_.getString(kKeyPass, config::network::kDefaultPassword);
+  config.serverIp = store_.getString(kKeyServerIp, config::network::kDefaultServerIp);
   config.serverPort =
       store_.getUShort(kKeyServerPort, config::network::kDefaultServerPort);
-  config.deviceName = store_.getString(kKeyDeviceName, "");
+  config.deviceName = store_.getString(kKeyDeviceName, config::network::kDefaultDeviceName);
   return config;
 }
 
