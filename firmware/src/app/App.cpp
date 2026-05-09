@@ -9,6 +9,7 @@ App::App()
                          config::gpio::kFingerprintTx,
                          config::fingerprint::kBaudRate),
       enrollmentService_(fingerprintDriver_, displayService_, networkService_),
+      syncMappingService_(fingerprintDriver_, networkService_),
       registrationService_(networkService_, displayService_),
       bootButtonDriver_(config::gpio::kBootButtonPin,
                         config::timing::kBootDebounceMs,
@@ -126,6 +127,52 @@ void App::tick() {
     enrollmentService_.startIfAllowed(
         registrationService_.remoteStatus() == models::RemoteDeviceStatus::ACTIVE);
   }
+
+  uint8_t syncEmployeeId;
+  String syncTemplateData;
+  String syncSourceMac;
+  if (mqttService_.consumeSyncCommand(syncEmployeeId, syncTemplateData, syncSourceMac)) {
+    const String selfMac = networkService_.macAddress();
+    const bool fromSelf =
+        syncSourceMac.length() > 0 && syncSourceMac.equalsIgnoreCase(selfMac);
+
+    if (fromSelf) {
+      Serial.printf("[App] Ignore SYNC from self (mac=%s).\n", selfMac.c_str());
+    } else {
+      Serial.printf("[App] Processing SYNC command for Employee ID %d (source=%s)\n",
+                    syncEmployeeId, syncSourceMac.c_str());
+
+      if (!enrollmentService_.sensorReady()) {
+        enrollmentService_.initSensor(true, config::timing::kFingerprintRetryIntervalMs);
+      }
+
+      if (!enrollmentService_.sensorReady()) {
+        Serial.println("[App] SYNC ABORTED: Fingerprint sensor is not ready.");
+      } else {
+        const uint8_t freeSlot =
+            fingerprintDriver_.findFirstFreeSlot(config::fingerprint::kMaxTemplateId);
+
+        if (freeSlot == 0) {
+          Serial.println("[App] SYNC ABORTED: No free fingerprint slot on this device.");
+        } else {
+          const bool stored =
+              fingerprintDriver_.setTemplateFromHex(freeSlot, syncTemplateData);
+
+          if (!stored) {
+            Serial.printf("[App] SYNC FAILED to store template at slot=%u.\n", freeSlot);
+          } else {
+            Serial.printf("[App] SYNC stored template at slot=%u, queueing mapping callback.\n",
+                          freeSlot);
+            syncMappingService_.enqueue(syncEmployeeId, freeSlot);
+          }
+        }
+      }
+    }
+  }
+
+  syncMappingService_.tick(currentConfig_, config::network::kDeviceApiKey,
+                           config::timing::kSyncMappingRetryIntervalMs,
+                           config::timing::kSyncMappingMaxAttempts);
 
   if (registrationService_.state() == services::DeviceRegistrationService::State::SUCCESS &&
       registrationService_.remoteStatus() == models::RemoteDeviceStatus::ACTIVE) {

@@ -33,6 +33,16 @@ class NetworkService {
                                const String& apiKey,
                                const String& fingerprintId);
 
+  bool registerFingerprintCallback(const models::DeviceConfig& config,
+                                   const String& apiKey,
+                                   const String& fingerprintId,
+                                   const String& templateData);
+
+  bool registerSyncMappingCallback(const models::DeviceConfig& config,
+                                   const String& apiKey,
+                                   uint8_t employeeId,
+                                   uint8_t fingerprintId);
+
  private:
   String buildBaseUrl(const models::DeviceConfig& config) const;
   String buildAuthorization(const String& apiKey) const;

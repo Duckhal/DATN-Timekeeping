@@ -12,6 +12,7 @@
 #include "services/EnrollmentService.h"
 #include "services/MqttService.h"
 #include "services/NetworkService.h"
+#include "services/SyncMappingService.h"
 
 namespace tk::app {
 class App {
@@ -40,6 +41,7 @@ class App {
   HardwareSerial fingerSerial_;
   drivers::FingerprintDriver fingerprintDriver_;
   services::EnrollmentService enrollmentService_;
+  services::SyncMappingService syncMappingService_;
 
   services::DeviceRegistrationService registrationService_;
   drivers::BootButtonDriver bootButtonDriver_;

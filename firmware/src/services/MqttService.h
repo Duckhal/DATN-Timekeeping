@@ -15,6 +15,9 @@ class MqttService {
   void loop();
 
   bool consumeEnrollCommand();
+  bool consumeSyncCommand(uint8_t& outEmployeeId,
+                          String& outTemplateData,
+                          String& outSourceMac);
 
  private:
   static void onRawMessage(char* topic, uint8_t* payload, unsigned int length);
@@ -27,6 +30,11 @@ class MqttService {
   String commandTopic_;
   uint32_t lastReconnectAttemptMs_;
   bool enrollCommandPending_;
+
+  bool syncCommandPending_;
+  uint8_t syncEmployeeId_;
+  String syncTemplateData_;
+  String syncSourceMac_;
 
   static MqttService* instance_;
 };

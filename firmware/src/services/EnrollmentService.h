@@ -39,7 +39,9 @@ class EnrollmentService {
  private:
   uint8_t findFirstFreeTemplateId(uint8_t maxTemplateId);
   void failEnrollment();
-  void succeedEnrollment(const models::DeviceConfig& config, const String& apiKey);
+  void succeedEnrollment(const models::DeviceConfig& config,
+                         const String& apiKey,
+                         const String& templateData);
 
   drivers::FingerprintDriver& fingerprint_;
   DisplayService& display_;

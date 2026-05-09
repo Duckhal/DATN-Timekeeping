@@ -143,6 +143,59 @@ bool NetworkService::sendFingerprintCallback(const models::DeviceConfig& config,
   return response.ok;
 }
 
+bool NetworkService::registerFingerprintCallback(const models::DeviceConfig& config,
+                                             const String& apiKey,
+                                             const String& fingerprintId,
+                                             const String& templateData) {
+  if (wifiStatus() != WL_CONNECTED) {
+    Serial.println("[HTTP] Skip fingerprint callback because WiFi is disconnected.");
+    lastHttpStatusCode_ = -1;
+    return false;
+  }
+
+  const String payload = String("{\"mac_addr\":\"") + macAddress() +
+                         "\",\"fingerprint_id\":\"" + fingerprintId + "\",\"template_data\":\"" + templateData + "\"}";
+  const String url = buildBaseUrl(config) + config::network::kFingerprintCallbackEndpoint;
+
+  Serial.printf("[Fingerprint] Sending callback for fingerprint_id=%s\n",
+                fingerprintId.c_str());
+
+  const models::HttpResponse response =
+      http_.postJson(url, payload, buildAuthorization(apiKey));
+
+  lastHttpStatusCode_ = response.statusCode;
+  Serial.printf("[HTTP] POST %s -> %d\n", url.c_str(), response.statusCode);
+  Serial.printf("[HTTP] Response: %s\n", response.body.c_str());
+  return response.ok;
+}
+
+bool NetworkService::registerSyncMappingCallback(const models::DeviceConfig& config,
+                                                 const String& apiKey,
+                                                 uint8_t employeeId,
+                                                 uint8_t fingerprintId) {
+  if (wifiStatus() != WL_CONNECTED) {
+    Serial.println("[HTTP] Skip sync-mapping callback because WiFi is disconnected.");
+    lastHttpStatusCode_ = -1;
+    return false;
+  }
+
+  const String payload = String("{\"mac_addr\":\"") + macAddress() +
+                         "\",\"employee_id\":" + String(employeeId) +
+                         ",\"fingerprint_id\":" + String(fingerprintId) + "}";
+  const String url = buildBaseUrl(config) + config::network::kSyncMappingCallbackEndpoint;
+
+  Serial.printf("[SyncMapping] Sending mapping for employee_id=%u fingerprint_id=%u\n",
+                employeeId, fingerprintId);
+
+  const models::HttpResponse response =
+      http_.postJson(url, payload, buildAuthorization(apiKey));
+
+  lastHttpStatusCode_ = response.statusCode;
+  Serial.printf("[HTTP] POST %s -> %d\n", url.c_str(), response.statusCode);
+  Serial.printf("[HTTP] Response: %s\n", response.body.c_str());
+  return response.ok;
+}
+
 String NetworkService::buildBaseUrl(const models::DeviceConfig& config) const {
   return String("http://") + config.serverIp + ":" + String(config.serverPort) +
          config::network::kApiBasePath;

@@ -1,5 +1,7 @@
 #include "services/MqttService.h"
 
+#include "Config/Config.h"
+
 namespace tk::services {
 MqttService* MqttService::instance_ = nullptr;
 
@@ -7,7 +9,11 @@ MqttService::MqttService(drivers::MqttClientDriver& driver)
     : driver_(driver),
       commandTopic_(""),
       lastReconnectAttemptMs_(0),
-      enrollCommandPending_(false) {}
+      enrollCommandPending_(false),
+      syncCommandPending_(false),
+      syncEmployeeId_(0),
+      syncTemplateData_(""),
+      syncSourceMac_("") {}
 
 void MqttService::begin() {
   instance_ = this;
@@ -42,8 +48,11 @@ bool MqttService::connectIfNeeded(const String& brokerHost, const String& macAdd
   }
 
   const bool subscribed = driver_.subscribe(commandTopic_.c_str(), 1);
+  const bool public_subscribed = driver_.subscribe(config::network::kMqttBroadcastSyncTopic, 1);
   Serial.printf("[MQTT] Connected. Subscribe %s -> %s\n",
                 commandTopic_.c_str(), subscribed ? "OK" : "FAILED");
+  Serial.printf("[MQTT] Connected. Subscribe %s -> %s\n",
+                config::network::kMqttBroadcastSyncTopic, public_subscribed ? "OK" : "FAILED");
   return subscribed;
 }
 
@@ -62,6 +71,20 @@ bool MqttService::consumeEnrollCommand() {
   return true;
 }
 
+bool MqttService::consumeSyncCommand(uint8_t& outEmployeeId,
+                                     String& outTemplateData,
+                                     String& outSourceMac) {
+  if (!syncCommandPending_) {
+    return false;
+  }
+
+  outEmployeeId = syncEmployeeId_;
+  outTemplateData = syncTemplateData_;
+  outSourceMac = syncSourceMac_;
+  syncCommandPending_ = false;
+  return true;
+}
+
 void MqttService::onRawMessage(char* topic, uint8_t* payload, unsigned int length) {
   if (!instance_) {
     return;
@@ -75,7 +98,7 @@ void MqttService::handleMessage(char* topic, uint8_t* payload, unsigned int leng
     return;
   }
 
-  StaticJsonDocument<128> doc;
+  DynamicJsonDocument doc(2048);
   const DeserializationError err = deserializeJson(doc, payload, length);
   if (err) {
     Serial.printf("[MQTT] Invalid JSON command: %s\n", err.c_str());
@@ -87,6 +110,26 @@ void MqttService::handleMessage(char* topic, uint8_t* payload, unsigned int leng
 
   if (command == "ENROLL_FINGERPRINT") {
     enrollCommandPending_ = true;
+  }
+
+  if (command == "SYNC_FINGERPRINT") {
+    const String employeeIdStr = doc["employee_id"] | "";
+    const String templateData = doc["template_data"] | "";
+    const String sourceMac = doc["mac_addr"] | "";
+    if (employeeIdStr.length() == 0 || templateData.length() == 0) {
+      Serial.println("[MQTT] Missing employee_id or template_data for SYNC_FINGERPRINT command.");
+      return;
+    }
+
+    uint8_t employeeId = (uint8_t)employeeIdStr.toInt();
+
+    syncEmployeeId_ = employeeId;
+    syncTemplateData_ = templateData;
+    syncSourceMac_ = sourceMac;
+    syncCommandPending_ = true;
+
+    Serial.printf("[MQTT] Received SYNC_FINGERPRINT command. employee_id=%d source_mac=%s\n",
+                  employeeId, sourceMac.c_str());
   }
 }
 

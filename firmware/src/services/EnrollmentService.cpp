@@ -152,8 +152,9 @@ void EnrollmentService::tick(const models::DeviceConfig& config,
       failEnrollment();
       return;
     }
+    const String templateData = fingerprint_.getTemplateAsHex(targetId_);
 
-    succeedEnrollment(config, apiKey);
+    succeedEnrollment(config, apiKey, templateData);
     return;
   }
 
@@ -185,9 +186,10 @@ void EnrollmentService::failEnrollment() {
 }
 
 void EnrollmentService::succeedEnrollment(const models::DeviceConfig& config,
-                                          const String& apiKey) {
+                                          const String& apiKey,
+                                          const String& templateData) {
   const bool callbackOk =
-      network_.sendFingerprintCallback(config, apiKey, String(targetId_));
+      network_.registerFingerprintCallback(config, apiKey, String(targetId_), templateData);
 
   const int callbackStatus = network_.getLastHttpStatusCode();
   Serial.printf("[Enroll] Callback result: %s (http=%d)\n",

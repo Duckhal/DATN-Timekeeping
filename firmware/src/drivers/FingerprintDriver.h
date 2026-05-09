@@ -16,6 +16,14 @@ class FingerprintDriver {
   uint8_t createModel();
   uint8_t storeModel(uint8_t id);
   uint8_t loadModel(uint8_t id);
+  uint8_t deleteModel(uint8_t id);
+
+  /** Returns the first slot id in [1, maxId] not used by a stored template, or 0 if none. */
+  uint8_t findFirstFreeSlot(uint8_t maxId);
+
+  String getTemplateAsHex(uint8_t id);
+
+  bool setTemplateFromHex(uint8_t id, const String& hexData);
 
  private:
   HardwareSerial& serialPort_;
