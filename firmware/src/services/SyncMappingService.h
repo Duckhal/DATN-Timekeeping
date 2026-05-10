@@ -23,7 +23,7 @@ class SyncMappingService {
                      NetworkService& network);
 
   /** Enqueue a pending mapping. Returns false if the queue is already full. */
-  bool enqueue(uint8_t employeeId, uint8_t fingerprintSlot);
+  bool enqueue(uint32_t employeeId, uint16_t fingerprintSlot);
 
   /** Called from App::tick() — processes at most one pending entry per tick. */
   void tick(const models::DeviceConfig& config,
@@ -36,8 +36,8 @@ class SyncMappingService {
 
   struct Pending {
     bool inUse;
-    uint8_t employeeId;
-    uint8_t fingerprintSlot;
+    uint32_t employeeId;
+    uint16_t fingerprintSlot;
     uint8_t attempts;
     uint32_t nextAttemptAtMs;
   };

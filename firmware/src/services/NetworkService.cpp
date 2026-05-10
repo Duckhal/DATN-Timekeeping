@@ -171,8 +171,8 @@ bool NetworkService::registerFingerprintCallback(const models::DeviceConfig& con
 
 bool NetworkService::registerSyncMappingCallback(const models::DeviceConfig& config,
                                                  const String& apiKey,
-                                                 uint8_t employeeId,
-                                                 uint8_t fingerprintId) {
+                                                 uint32_t employeeId,
+                                                 uint16_t fingerprintId) {
   if (wifiStatus() != WL_CONNECTED) {
     Serial.println("[HTTP] Skip sync-mapping callback because WiFi is disconnected.");
     lastHttpStatusCode_ = -1;
@@ -184,7 +184,7 @@ bool NetworkService::registerSyncMappingCallback(const models::DeviceConfig& con
                          ",\"fingerprint_id\":" + String(fingerprintId) + "}";
   const String url = buildBaseUrl(config) + config::network::kSyncMappingCallbackEndpoint;
 
-  Serial.printf("[SyncMapping] Sending mapping for employee_id=%u fingerprint_id=%u\n",
+  Serial.printf("[SyncMapping] Sending mapping for employee_id=%lu fingerprint_id=%u\n",
                 employeeId, fingerprintId);
 
   const models::HttpResponse response =

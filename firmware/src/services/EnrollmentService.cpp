@@ -60,7 +60,7 @@ void EnrollmentService::startIfAllowed(bool isDeviceActive) {
 void EnrollmentService::tick(const models::DeviceConfig& config,
                              const String& apiKey,
                              uint32_t enrollTimeoutMs,
-                             uint8_t maxTemplateId) {
+                             uint16_t maxTemplateId) {
   if (runtimeState_ != RuntimeState::ENROLLING) {
     return;
   }
@@ -167,8 +167,8 @@ void EnrollmentService::tick(const models::DeviceConfig& config,
   }
 }
 
-uint8_t EnrollmentService::findFirstFreeTemplateId(uint8_t maxTemplateId) {
-  for (uint8_t id = 1; id <= maxTemplateId; id++) {
+uint16_t EnrollmentService::findFirstFreeTemplateId(uint16_t maxTemplateId) {
+  for (uint16_t id = 1; id <= maxTemplateId; id++) {
     const uint8_t result = fingerprint_.loadModel(id);
     if (result != FINGERPRINT_OK) {
       return id;

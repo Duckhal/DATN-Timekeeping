@@ -128,7 +128,7 @@ void App::tick() {
         registrationService_.remoteStatus() == models::RemoteDeviceStatus::ACTIVE);
   }
 
-  uint8_t syncEmployeeId;
+  uint32_t syncEmployeeId;
   String syncTemplateData;
   String syncSourceMac;
   if (mqttService_.consumeSyncCommand(syncEmployeeId, syncTemplateData, syncSourceMac)) {
@@ -139,8 +139,8 @@ void App::tick() {
     if (fromSelf) {
       Serial.printf("[App] Ignore SYNC from self (mac=%s).\n", selfMac.c_str());
     } else {
-      Serial.printf("[App] Processing SYNC command for Employee ID %d (source=%s)\n",
-                    syncEmployeeId, syncSourceMac.c_str());
+      Serial.printf("[App] Processing SYNC command for Employee ID %lu (source=%s)\n",
+                    (unsigned long)syncEmployeeId, syncSourceMac.c_str());
 
       if (!enrollmentService_.sensorReady()) {
         enrollmentService_.initSensor(true, config::timing::kFingerprintRetryIntervalMs);
@@ -149,7 +149,7 @@ void App::tick() {
       if (!enrollmentService_.sensorReady()) {
         Serial.println("[App] SYNC ABORTED: Fingerprint sensor is not ready.");
       } else {
-        const uint8_t freeSlot =
+        const uint16_t freeSlot =
             fingerprintDriver_.findFirstFreeSlot(config::fingerprint::kMaxTemplateId);
 
         if (freeSlot == 0) {

@@ -40,8 +40,8 @@ class NetworkService {
 
   bool registerSyncMappingCallback(const models::DeviceConfig& config,
                                    const String& apiKey,
-                                   uint8_t employeeId,
-                                   uint8_t fingerprintId);
+                                   uint32_t employeeId,
+                                   uint16_t fingerprintId);
 
  private:
   String buildBaseUrl(const models::DeviceConfig& config) const;

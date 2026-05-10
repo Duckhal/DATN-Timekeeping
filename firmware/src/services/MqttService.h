@@ -15,7 +15,7 @@ class MqttService {
   void loop();
 
   bool consumeEnrollCommand();
-  bool consumeSyncCommand(uint8_t& outEmployeeId,
+  bool consumeSyncCommand(uint32_t& outEmployeeId,
                           String& outTemplateData,
                           String& outSourceMac);
 
@@ -32,7 +32,7 @@ class MqttService {
   bool enrollCommandPending_;
 
   bool syncCommandPending_;
-  uint8_t syncEmployeeId_;
+  uint32_t syncEmployeeId_;
   String syncTemplateData_;
   String syncSourceMac_;
 

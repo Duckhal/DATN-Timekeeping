@@ -71,7 +71,7 @@ bool MqttService::consumeEnrollCommand() {
   return true;
 }
 
-bool MqttService::consumeSyncCommand(uint8_t& outEmployeeId,
+bool MqttService::consumeSyncCommand(uint32_t& outEmployeeId,
                                      String& outTemplateData,
                                      String& outSourceMac) {
   if (!syncCommandPending_) {
@@ -121,15 +121,15 @@ void MqttService::handleMessage(char* topic, uint8_t* payload, unsigned int leng
       return;
     }
 
-    uint8_t employeeId = (uint8_t)employeeIdStr.toInt();
+    uint32_t employeeId = (uint32_t)employeeIdStr.toInt();
 
     syncEmployeeId_ = employeeId;
     syncTemplateData_ = templateData;
     syncSourceMac_ = sourceMac;
     syncCommandPending_ = true;
 
-    Serial.printf("[MQTT] Received SYNC_FINGERPRINT command. employee_id=%d source_mac=%s\n",
-                  employeeId, sourceMac.c_str());
+    Serial.printf("[MQTT] Received SYNC_FINGERPRINT command. employee_id=%lu source_mac=%s\n",
+                  (unsigned long)employeeId, sourceMac.c_str());
   }
 }
 

@@ -30,20 +30,20 @@ uint8_t FingerprintDriver::createModel() {
   return fingerprint_.createModel();
 }
 
-uint8_t FingerprintDriver::storeModel(uint8_t id) {
+uint16_t FingerprintDriver::storeModel(uint16_t id) {
   return fingerprint_.storeModel(id);
 }
 
-uint8_t FingerprintDriver::loadModel(uint8_t id) {
+uint16_t FingerprintDriver::loadModel(uint16_t id) {
   return fingerprint_.loadModel(id);
 }
 
-uint8_t FingerprintDriver::deleteModel(uint8_t id) {
+uint16_t FingerprintDriver::deleteModel(uint16_t id) {
   return fingerprint_.deleteModel(id);
 }
 
-uint8_t FingerprintDriver::findFirstFreeSlot(uint8_t maxId) {
-  for (uint8_t id = 1; id <= maxId; id++) {
+uint16_t FingerprintDriver::findFirstFreeSlot(uint16_t maxId) {
+  for (uint16_t id = 1; id <= maxId; id++) {
     const uint8_t result = fingerprint_.loadModel(id);
     if (result != FINGERPRINT_OK) {
       return id;
@@ -52,7 +52,7 @@ uint8_t FingerprintDriver::findFirstFreeSlot(uint8_t maxId) {
   return 0;
 }
 
-String FingerprintDriver::getTemplateAsHex(uint8_t id) {
+String FingerprintDriver::getTemplateAsHex(uint16_t id) {
   // 1. Tải dữ liệu từ Flash lên CharBuffer 1
   uint8_t result = fingerprint_.loadModel(id);
   if (result != FINGERPRINT_OK) {
@@ -106,7 +106,7 @@ String FingerprintDriver::getTemplateAsHex(uint8_t id) {
   return hexData;
 }
 
-bool FingerprintDriver::setTemplateFromHex(uint8_t id, const String& hexData) {
+bool FingerprintDriver::setTemplateFromHex(uint16_t id, const String& hexData) {
   // 1. Kiểm tra tính hợp lệ của chuỗi đầu vào (phải chẵn 1024 ký tự tương đương 512 bytes)
   if (hexData.length() != 1024) {
     Serial.println("[Fingerprint] Invalid Hex length. Expected 1024 characters.");

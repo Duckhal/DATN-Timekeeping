@@ -34,10 +34,10 @@ class EnrollmentService {
   void tick(const models::DeviceConfig& config,
             const String& apiKey,
             uint32_t enrollTimeoutMs,
-            uint8_t maxTemplateId);
+            uint16_t maxTemplateId);
 
  private:
-  uint8_t findFirstFreeTemplateId(uint8_t maxTemplateId);
+  uint16_t findFirstFreeTemplateId(uint16_t maxTemplateId);
   void failEnrollment();
   void succeedEnrollment(const models::DeviceConfig& config,
                          const String& apiKey,
@@ -50,7 +50,7 @@ class EnrollmentService {
   RuntimeState runtimeState_;
   State state_;
   bool sensorReady_;
-  uint8_t targetId_;
+  uint16_t targetId_;
   uint32_t enrollStartedAtMs_;
   uint32_t enrollResultShownAtMs_;
   uint32_t lastSensorInitAttemptMs_;
