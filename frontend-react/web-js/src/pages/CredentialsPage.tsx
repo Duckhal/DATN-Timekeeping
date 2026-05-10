@@ -180,10 +180,16 @@ export function CredentialsPage() {
       setIsRemovingCredential(true)
       await removeCredential(employeeId, type)
       await loadPageData()
+
+      const message =
+        type === 'RFID'
+          ? 'RFID card removed successfully.'
+          : 'Fingerprint removed. Online devices will be cleaned up immediately; offline devices will self-heal on the next check-in.'
+
       setSnackbar({
         open: true,
         severity: 'success',
-        message: `${type === 'RFID' ? 'RFID card' : 'Fingerprint'} removed successfully.`,
+        message,
       })
     } catch (error) {
       setSnackbar({

@@ -52,6 +52,27 @@ uint16_t FingerprintDriver::findFirstFreeSlot(uint16_t maxId) {
   return 0;
 }
 
+bool FingerprintDriver::tryMatchFinger(uint16_t& outId, uint16_t& outConfidence) {
+  const uint8_t imageResult = fingerprint_.getImage();
+  if (imageResult != FINGERPRINT_OK) {
+    return false;
+  }
+
+  const uint8_t tzResult = fingerprint_.image2Tz(1);
+  if (tzResult != FINGERPRINT_OK) {
+    return false;
+  }
+
+  const uint8_t searchResult = fingerprint_.fingerFastSearch();
+  if (searchResult != FINGERPRINT_OK) {
+    return false;
+  }
+
+  outId = fingerprint_.fingerID;
+  outConfidence = fingerprint_.confidence;
+  return true;
+}
+
 String FingerprintDriver::getTemplateAsHex(uint16_t id) {
   // 1. Tải dữ liệu từ Flash lên CharBuffer 1
   uint8_t result = fingerprint_.loadModel(id);

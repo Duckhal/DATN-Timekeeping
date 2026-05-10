@@ -196,6 +196,37 @@ bool NetworkService::registerSyncMappingCallback(const models::DeviceConfig& con
   return response.ok;
 }
 
+bool NetworkService::sendCheckin(const models::DeviceConfig& config,
+                                 const String& apiKey,
+                                 uint16_t fingerprintId,
+                                 const String& clientTxId,
+                                 String& outBody) {
+  outBody = "";
+
+  if (wifiStatus() != WL_CONNECTED) {
+    Serial.println("[HTTP] Skip checkin because WiFi is disconnected.");
+    lastHttpStatusCode_ = -1;
+    return false;
+  }
+
+  const String payload = String("{\"mac_addr\":\"") + macAddress() +
+                         "\",\"fingerprint_id\":" + String(fingerprintId) +
+                         ",\"client_tx_id\":\"" + clientTxId + "\"}";
+  const String url = buildBaseUrl(config) + config::network::kCheckinEndpoint;
+
+  Serial.printf("[Checkin] Sending checkin fingerprint_id=%u tx=%s\n",
+                fingerprintId, clientTxId.c_str());
+
+  const models::HttpResponse response =
+      http_.postJson(url, payload, buildAuthorization(apiKey));
+
+  lastHttpStatusCode_ = response.statusCode;
+  outBody = response.body;
+  Serial.printf("[HTTP] POST %s -> %d\n", url.c_str(), response.statusCode);
+  Serial.printf("[HTTP] Response: %s\n", response.body.c_str());
+  return response.ok;
+}
+
 String NetworkService::buildBaseUrl(const models::DeviceConfig& config) const {
   return String("http://") + config.serverIp + ":" + String(config.serverPort) +
          config::network::kApiBasePath;

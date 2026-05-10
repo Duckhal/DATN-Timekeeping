@@ -103,4 +103,16 @@ void DisplayService::showSettingsCleared() {
   display_.drawCenteredText("Settings Cleared!", 85, ST77XX_RED, 2);
   display_.drawCenteredText("Rebooting...", 120, ST77XX_RED, 2);
 }
+
+void DisplayService::showCheckinSuccess(const String& employeeName) {
+  display_.clear(ST77XX_BLACK);
+  display_.drawCenteredText("Have a good day,", 96, ST77XX_GREEN, 2);
+  display_.drawCenteredText(employeeName, 130, ST77XX_GREEN, 2);
+}
+
+void DisplayService::showCheckinDenied() {
+  display_.clear(ST77XX_BLACK);
+  display_.drawCenteredText("Check-in denied", 96, ST77XX_RED, 2);
+  display_.drawCenteredText("Please contact HR", 130, ST77XX_WHITE, 2);
+}
 }  // namespace tk::services

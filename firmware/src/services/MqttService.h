@@ -18,6 +18,7 @@ class MqttService {
   bool consumeSyncCommand(uint32_t& outEmployeeId,
                           String& outTemplateData,
                           String& outSourceMac);
+  bool consumeDeleteFingerCommand(uint16_t& outLocalId);
 
  private:
   static void onRawMessage(char* topic, uint8_t* payload, unsigned int length);
@@ -35,6 +36,9 @@ class MqttService {
   uint32_t syncEmployeeId_;
   String syncTemplateData_;
   String syncSourceMac_;
+
+  bool deleteFingerPending_;
+  uint16_t deleteFingerLocalId_;
 
   static MqttService* instance_;
 };

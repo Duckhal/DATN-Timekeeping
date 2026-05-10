@@ -7,6 +7,7 @@
 #include "drivers/PortalDriver.h"
 #include "models/DeviceConfig.h"
 #include "services/ConfigService.h"
+#include "services/CheckinService.h"
 #include "services/DeviceRegistrationService.h"
 #include "services/DisplayService.h"
 #include "services/EnrollmentService.h"
@@ -42,6 +43,7 @@ class App {
   drivers::FingerprintDriver fingerprintDriver_;
   services::EnrollmentService enrollmentService_;
   services::SyncMappingService syncMappingService_;
+  services::CheckinService checkinService_;
 
   services::DeviceRegistrationService registrationService_;
   drivers::BootButtonDriver bootButtonDriver_;

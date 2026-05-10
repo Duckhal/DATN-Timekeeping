@@ -10,6 +10,7 @@ App::App()
                          config::fingerprint::kBaudRate),
       enrollmentService_(fingerprintDriver_, displayService_, networkService_),
       syncMappingService_(fingerprintDriver_, networkService_),
+      checkinService_(fingerprintDriver_, displayService_, networkService_),
       registrationService_(networkService_, displayService_),
       bootButtonDriver_(config::gpio::kBootButtonPin,
                         config::timing::kBootDebounceMs,
@@ -173,6 +174,30 @@ void App::tick() {
   syncMappingService_.tick(currentConfig_, config::network::kDeviceApiKey,
                            config::timing::kSyncMappingRetryIntervalMs,
                            config::timing::kSyncMappingMaxAttempts);
+
+  uint16_t deleteLocalId = 0;
+  if (mqttService_.consumeDeleteFingerCommand(deleteLocalId)) {
+    if (enrollmentService_.isEnrolling()) {
+      Serial.println("[App] Ignore DELETE_FINGER while enrolling.");
+    } else if (!enrollmentService_.sensorReady()) {
+      enrollmentService_.initSensor(true, config::timing::kFingerprintRetryIntervalMs);
+    }
+
+    if (!enrollmentService_.isEnrolling() && enrollmentService_.sensorReady()) {
+      const uint16_t result = fingerprintDriver_.deleteModel(deleteLocalId);
+      Serial.printf("[App] DELETE_FINGER deleteModel(%u) -> %u\n", deleteLocalId, result);
+    }
+  }
+
+  const bool checkinAllowed =
+      registrationService_.state() == services::DeviceRegistrationService::State::SUCCESS &&
+      registrationService_.remoteStatus() == models::RemoteDeviceStatus::ACTIVE &&
+      !enrollmentService_.isEnrolling() &&
+      enrollmentService_.sensorReady();
+
+  if (checkinAllowed) {
+    checkinService_.tick(currentConfig_, config::network::kDeviceApiKey, true);
+  }
 
   if (registrationService_.state() == services::DeviceRegistrationService::State::SUCCESS &&
       registrationService_.remoteStatus() == models::RemoteDeviceStatus::ACTIVE) {

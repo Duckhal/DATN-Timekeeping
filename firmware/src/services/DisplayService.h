@@ -26,6 +26,8 @@ class DisplayService {
   void showEnrollFailed();
   void showWelcome();
   void showSettingsCleared();
+  void showCheckinSuccess(const String& employeeName);
+  void showCheckinDenied();
 
  private:
    drivers::TftDriver display_;

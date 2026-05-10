@@ -21,6 +21,14 @@ class FingerprintDriver {
   /** Returns the first slot id in [1, maxId] not used by a stored template, or 0 if none. */
   uint16_t findFirstFreeSlot(uint16_t maxId);
 
+  /**
+   * Non-blocking capture + 1:N match. Returns true and writes the matched slot
+   * id + confidence when a finger is present and matches a stored template.
+   * Returns false with no side effects when no finger, capture error, or no
+   * match — caller should call again next tick.
+   */
+  bool tryMatchFinger(uint16_t& outId, uint16_t& outConfidence);
+
   String getTemplateAsHex(uint16_t id);
 
   bool setTemplateFromHex(uint16_t id, const String& hexData);

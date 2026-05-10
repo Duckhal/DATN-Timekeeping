@@ -29,6 +29,7 @@ class EnrollmentService {
 
   bool initSensor(bool forceLog, uint32_t retryIntervalMs);
   bool sensorReady() const;
+  bool isEnrolling() const { return runtimeState_ == RuntimeState::ENROLLING; }
 
   void startIfAllowed(bool isDeviceActive);
   void tick(const models::DeviceConfig& config,

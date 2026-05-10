@@ -13,7 +13,9 @@ MqttService::MqttService(drivers::MqttClientDriver& driver)
       syncCommandPending_(false),
       syncEmployeeId_(0),
       syncTemplateData_(""),
-      syncSourceMac_("") {}
+      syncSourceMac_(""),
+      deleteFingerPending_(false),
+      deleteFingerLocalId_(0) {}
 
 void MqttService::begin() {
   instance_ = this;
@@ -85,6 +87,16 @@ bool MqttService::consumeSyncCommand(uint32_t& outEmployeeId,
   return true;
 }
 
+bool MqttService::consumeDeleteFingerCommand(uint16_t& outLocalId) {
+  if (!deleteFingerPending_) {
+    return false;
+  }
+
+  outLocalId = deleteFingerLocalId_;
+  deleteFingerPending_ = false;
+  return true;
+}
+
 void MqttService::onRawMessage(char* topic, uint8_t* payload, unsigned int length) {
   if (!instance_) {
     return;
@@ -110,6 +122,17 @@ void MqttService::handleMessage(char* topic, uint8_t* payload, unsigned int leng
 
   if (command == "ENROLL_FINGERPRINT") {
     enrollCommandPending_ = true;
+  }
+
+  if (command == "DELETE_FINGER") {
+    const long localId = doc["local_id"] | -1L;
+    if (localId < 1) {
+      Serial.println("[MQTT] DELETE_FINGER missing/invalid local_id.");
+      return;
+    }
+    deleteFingerLocalId_ = (uint16_t)localId;
+    deleteFingerPending_ = true;
+    Serial.printf("[MQTT] Received DELETE_FINGER. local_id=%u\n", deleteFingerLocalId_);
   }
 
   if (command == "SYNC_FINGERPRINT") {

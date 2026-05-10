@@ -43,6 +43,17 @@ class NetworkService {
                                    uint32_t employeeId,
                                    uint16_t fingerprintId);
 
+  /**
+   * POST /api/devices/checkin. On success the backend response is written to
+   * `outBody` so the caller can parse `status` and (for ghosts) `action` +
+   * `local_id`.
+   */
+  bool sendCheckin(const models::DeviceConfig& config,
+                   const String& apiKey,
+                   uint16_t fingerprintId,
+                   const String& clientTxId,
+                   String& outBody);
+
  private:
   String buildBaseUrl(const models::DeviceConfig& config) const;
   String buildAuthorization(const String& apiKey) const;
