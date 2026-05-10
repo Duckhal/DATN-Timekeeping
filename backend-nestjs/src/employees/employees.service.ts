@@ -1,9 +1,11 @@
 import {
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { MqttService } from '../mqtt/mqtt.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import type { AuthMethod, PublicEmployeeProfile } from '../types';
@@ -29,7 +31,12 @@ type EmployeeSafe = Omit<PublicEmployeeProfile, 'hourly_rate'> & {
 
 @Injectable()
 export class EmployeesService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(EmployeesService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly mqttService: MqttService,
+  ) {}
 
   // UC0b — HR creates a new employee account
   async create(dto: CreateEmployeeDto) {
@@ -124,15 +131,68 @@ export class EmployeesService {
       });
     }
 
-    // FINGERPRINT: clear master template AND all per-device mappings
-    return this.prisma.$transaction(async (tx) => {
+    // FINGERPRINT removal is split in two phases so MQTT publishing can never
+    // run inside a DB transaction (it is not rollback-able).
+    //
+    // Phase 1 (transactional, authoritative):
+    //   - Snapshot every (device mac, local fingerprint slot) that will be
+    //     orphaned, then delete mappings + clear the master template.
+    //
+    // Phase 2 (post-commit, fire-and-forget):
+    //   - Publish DELETE_FINGER to each device's private command topic.
+    //   - Offline devices miss this message, but the self-healing ghost path
+    //     in the check-in endpoint will clean them up later.
+    const { updated, targets } = await this.prisma.$transaction(async (tx) => {
+      const mappings = await tx.mapping.findMany({
+        where: {
+          employee_id: empId,
+          fingerprint_id: { not: null },
+        },
+        select: {
+          fingerprint_id: true,
+          device: { select: { mac_addr: true } },
+        },
+      });
+
       await tx.mapping.deleteMany({ where: { employee_id: empId } });
-      return tx.employee.update({
+
+      const updated = await tx.employee.update({
         where: { employee_id: empId },
         data: { template_fingerprint: null },
         select: SAFE_SELECT,
       });
+
+      const targets = mappings
+        .filter((m) => m.fingerprint_id !== null && m.device?.mac_addr)
+        .map((m) => ({
+          mac_addr: m.device!.mac_addr,
+          local_id: m.fingerprint_id!,
+        }));
+
+      return { updated, targets };
     });
+
+    for (const target of targets) {
+      const topic = `timekeeping/device/${target.mac_addr}/command`;
+      this.mqttService
+        .publish(topic, {
+          command: 'DELETE_FINGER',
+          local_id: target.local_id,
+        })
+        .then(() => {
+          this.logger.log(
+            `[RemoveFingerprint] Published DELETE_FINGER to ${topic} local_id=${target.local_id}`,
+          );
+        })
+        .catch((err: unknown) => {
+          const message = err instanceof Error ? err.message : String(err);
+          this.logger.warn(
+            `[RemoveFingerprint] Publish to ${topic} failed (will self-heal on next check-in): ${message}`,
+          );
+        });
+    }
+
+    return updated;
   }
 
   // Shared mapper for API contracts that expose `email` and `employee_id` fields.
