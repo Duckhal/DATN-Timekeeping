@@ -9,6 +9,7 @@ import { AuthModule } from './auth/auth.module';
 import { DevicesModule } from './devices/devices.module';
 import { CredentialsModule } from './credentials/credentials.module';
 import { MqttModule } from './mqtt/mqtt.module';
+import { CheckinModule } from './checkin/checkin.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { MqttModule } from './mqtt/mqtt.module';
     DevicesModule,
     CredentialsModule,
     MqttModule,
+    CheckinModule,
   ],
   controllers: [AppController],
   providers: [AppService],
