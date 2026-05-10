@@ -52,25 +52,29 @@ uint16_t FingerprintDriver::findFirstFreeSlot(uint16_t maxId) {
   return 0;
 }
 
-bool FingerprintDriver::tryMatchFinger(uint16_t& outId, uint16_t& outConfidence) {
+FingerprintDriver::MatchResult FingerprintDriver::tryMatchFinger(uint16_t& outId, uint16_t& outConfidence) {
   const uint8_t imageResult = fingerprint_.getImage();
+  if (imageResult == FINGERPRINT_NOFINGER) {
+    return MatchResult::NO_FINGER;
+  }
   if (imageResult != FINGERPRINT_OK) {
-    return false;
+    // Capture error (blurred, poor contact). Treat as "finger present, unknown".
+    return MatchResult::NO_MATCH;
   }
 
   const uint8_t tzResult = fingerprint_.image2Tz(1);
   if (tzResult != FINGERPRINT_OK) {
-    return false;
+    return MatchResult::NO_MATCH;
   }
 
   const uint8_t searchResult = fingerprint_.fingerFastSearch();
   if (searchResult != FINGERPRINT_OK) {
-    return false;
+    return MatchResult::NO_MATCH;
   }
 
   outId = fingerprint_.fingerID;
   outConfidence = fingerprint_.confidence;
-  return true;
+  return MatchResult::MATCHED;
 }
 
 String FingerprintDriver::getTemplateAsHex(uint16_t id) {

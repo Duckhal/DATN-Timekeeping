@@ -21,13 +21,17 @@ class FingerprintDriver {
   /** Returns the first slot id in [1, maxId] not used by a stored template, or 0 if none. */
   uint16_t findFirstFreeSlot(uint16_t maxId);
 
+  enum class MatchResult : uint8_t {
+    NO_FINGER,   // Sensor has no finger placed — caller should poll again silently.
+    NO_MATCH,    // A finger was captured but did not match any stored template.
+    MATCHED,     // Match found; outId/outConfidence are written.
+  };
+
   /**
-   * Non-blocking capture + 1:N match. Returns true and writes the matched slot
-   * id + confidence when a finger is present and matches a stored template.
-   * Returns false with no side effects when no finger, capture error, or no
-   * match — caller should call again next tick.
+   * Non-blocking capture + 1:N match. Distinguishes between "no finger at all"
+   * (polling state) and "finger present but unknown" (user feedback needed).
    */
-  bool tryMatchFinger(uint16_t& outId, uint16_t& outConfidence);
+  MatchResult tryMatchFinger(uint16_t& outId, uint16_t& outConfidence);
 
   String getTemplateAsHex(uint16_t id);
 

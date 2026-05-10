@@ -48,7 +48,19 @@ void CheckinService::tick(const models::DeviceConfig& config,
 
   uint16_t matchedId = 0;
   uint16_t confidence = 0;
-  if (!fingerprint_.tryMatchFinger(matchedId, confidence)) {
+  const drivers::FingerprintDriver::MatchResult match =
+      fingerprint_.tryMatchFinger(matchedId, confidence);
+
+  if (match == drivers::FingerprintDriver::MatchResult::NO_FINGER) {
+    return;
+  }
+
+  if (match == drivers::FingerprintDriver::MatchResult::NO_MATCH) {
+    // Finger was placed but doesn't match any stored template — unknown finger
+    // or poor capture. Surface "Please try again" so the user has feedback.
+    Serial.println("[Checkin] Finger placed but no match found.");
+    display_.showCheckinDenied();
+    enterResultState();
     return;
   }
 
@@ -59,8 +71,12 @@ void CheckinService::tick(const models::DeviceConfig& config,
   const bool ok = network_.sendCheckin(config, apiKey, matchedId, clientTxId, body);
 
   if (!ok && body.length() == 0) {
-    // Network-level failure: keep the welcome screen, let the user retry.
-    state_ = State::WAIT_FINGER_RELEASE;
+    // Network-level failure (wifi down, timeout, non-HTTP error). User should
+    // see feedback + be debounced so the next tick doesn't instantly re-poll
+    // the same finger.
+    Serial.println("[Checkin] Network failure while posting checkin.");
+    display_.showCheckinDenied();
+    enterResultState();
     return;
   }
 

@@ -112,7 +112,7 @@ void DisplayService::showCheckinSuccess(const String& employeeName) {
 
 void DisplayService::showCheckinDenied() {
   display_.clear(ST77XX_BLACK);
-  display_.drawCenteredText("Check-in denied", 96, ST77XX_RED, 2);
-  display_.drawCenteredText("Please contact HR", 130, ST77XX_WHITE, 2);
+  display_.drawCenteredText("Check-in failed", 96, ST77XX_RED, 2);
+  display_.drawCenteredText("Please try again", 130, ST77XX_WHITE, 2);
 }
 }  // namespace tk::services
