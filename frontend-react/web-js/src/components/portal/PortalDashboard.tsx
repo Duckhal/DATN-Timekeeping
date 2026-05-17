@@ -1,10 +1,13 @@
 import {
+  Alert,
   Box,
   Button,
   Card,
   CardContent,
   Chip,
+  CircularProgress,
   Divider,
+  IconButton,
   List,
   ListItem,
   ListItemIcon,
@@ -23,13 +26,99 @@ import EventBusyRoundedIcon from '@mui/icons-material/EventBusyRounded'
 import PendingActionsRoundedIcon from '@mui/icons-material/PendingActionsRounded'
 import ScheduleRoundedIcon from '@mui/icons-material/ScheduleRounded'
 import WorkHistoryRoundedIcon from '@mui/icons-material/WorkHistoryRounded'
-import { attendanceRecords, quickActions } from '../../utils/portalData'
+import ChevronLeftRoundedIcon from '@mui/icons-material/ChevronLeftRounded'
+import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded'
+import { useEffect, useMemo, useState } from 'react'
+import { quickActions } from '../../utils/portalData'
+import { getMyAttendance } from '../../apis/attendanceService'
+import type {
+  AttendanceItem,
+  AttendancePage,
+  AttendanceStatusCode,
+} from '../../types/attendance'
 
 type PortalDashboardProps = {
   welcomeName: string
 }
 
+const STATUS_LABEL: Record<AttendanceStatusCode, string> = {
+  COMPLETED: 'Complete',
+  SHORTHOURS: 'Short Hours',
+  DAYOFF: 'Day Off',
+}
+
+const STATUS_COLOR: Record<
+  AttendanceStatusCode,
+  'success' | 'warning' | 'default'
+> = {
+  COMPLETED: 'success',
+  SHORTHOURS: 'warning',
+  DAYOFF: 'default',
+}
+
+const MONTH_LABEL = new Intl.DateTimeFormat('en-US', {
+  month: 'long',
+  year: 'numeric',
+})
+
+function currentMonth(): string {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+}
+
+function shiftMonth(month: string, delta: number): string {
+  const [y, m] = month.split('-').map(Number)
+  const next = new Date(y, m - 1 + delta, 1)
+  return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}`
+}
+
+function formatMonthLabel(month: string): string {
+  const [y, m] = month.split('-').map(Number)
+  return MONTH_LABEL.format(new Date(y, m - 1, 1))
+}
+
+function formatDate(iso: string): string {
+  const [y, m, d] = iso.split('-')
+  return `${d}/${m}/${y}`
+}
+
+function dash(value: string | null): string {
+  return value ?? '-'
+}
+
 export function PortalDashboard({ welcomeName }: PortalDashboardProps) {
+  const [month, setMonth] = useState<string>(() => currentMonth())
+  const [data, setData] = useState<AttendancePage | null>(null)
+  const [loading, setLoading] = useState<boolean>(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    getMyAttendance({ month })
+      .then((page) => {
+        if (cancelled) return
+        setData(page)
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return
+        const message =
+          err instanceof Error ? err.message : 'Failed to load attendance.'
+        setError(message)
+        setData(null)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [month])
+
+  const items: AttendanceItem[] = useMemo(() => data?.items ?? [], [data])
+  const isCurrentMonth = month === currentMonth()
+
   return (
     <Box sx={{ px: { xs: 2, md: 4 }, py: 3 }}>
       <Stack spacing={3}>
@@ -47,7 +136,7 @@ export function PortalDashboard({ welcomeName }: PortalDashboardProps) {
             Hello, {welcomeName}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Attendance Summary - March 2026
+            Attendance Summary - {formatMonthLabel(month)}
           </Typography>
         </Paper>
 
@@ -107,14 +196,50 @@ export function PortalDashboard({ welcomeName }: PortalDashboardProps) {
         </Stack>
 
         <Paper sx={{ border: '1px solid', borderColor: 'divider' }}>
-          <Box sx={{ p: 2 }}>
-            <Typography variant="h6" fontWeight={700}>
-              Recent Attendance Logs
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Mock data inspired by the SotaTek Portal layout
-            </Typography>
-          </Box>
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            justifyContent="space-between"
+            alignItems={{ xs: 'flex-start', sm: 'center' }}
+            spacing={1}
+            sx={{ p: 2 }}
+          >
+            <Box>
+              <Typography variant="h6" fontWeight={700}>
+                Attendance Logs
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {data
+                  ? `${data.total} record${data.total === 1 ? '' : 's'} for ${formatMonthLabel(month)}`
+                  : 'Loading…'}
+              </Typography>
+            </Box>
+            <Stack direction="row" spacing={0.5} alignItems="center">
+              <IconButton
+                size="small"
+                onClick={() => setMonth((m) => shiftMonth(m, -1))}
+                aria-label="Previous month"
+              >
+                <ChevronLeftRoundedIcon />
+              </IconButton>
+              <Typography variant="body2" sx={{ minWidth: 96, textAlign: 'center' }}>
+                {formatMonthLabel(month)}
+              </Typography>
+              <IconButton
+                size="small"
+                onClick={() => setMonth((m) => shiftMonth(m, 1))}
+                disabled={isCurrentMonth}
+                aria-label="Next month"
+              >
+                <ChevronRightRoundedIcon />
+              </IconButton>
+            </Stack>
+          </Stack>
+
+          {error ? (
+            <Alert severity="error" sx={{ mx: 2, mb: 2 }}>
+              {error}
+            </Alert>
+          ) : null}
 
           <TableContainer>
             <Table size="small">
@@ -125,36 +250,48 @@ export function PortalDashboard({ welcomeName }: PortalDashboardProps) {
                   <TableCell>Work End</TableCell>
                   <TableCell>Check in</TableCell>
                   <TableCell>Check out</TableCell>
-                  <TableCell>Missing Minutes</TableCell>
-                  <TableCell>Total Workday</TableCell>
+                  <TableCell align="right">Missing Minutes</TableCell>
+                  <TableCell align="right">Total Workday</TableCell>
                   <TableCell>Status</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {attendanceRecords.map((item) => (
-                  <TableRow key={item.date} hover>
-                    <TableCell>{item.date}</TableCell>
-                    <TableCell>{item.workStart}</TableCell>
-                    <TableCell>{item.workEnd}</TableCell>
-                    <TableCell>{item.checkIn}</TableCell>
-                    <TableCell>{item.checkOut}</TableCell>
-                    <TableCell>{item.missingMinutes}</TableCell>
-                    <TableCell>{item.totalWorkday.toFixed(4)}</TableCell>
-                    <TableCell>
-                      <Chip
-                        size="small"
-                        label={item.status}
-                        color={
-                          item.status === 'Complete'
-                            ? 'success'
-                            : item.status === 'Day Off'
-                              ? 'default'
-                              : 'warning'
-                        }
-                      />
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                      <CircularProgress size={24} />
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : items.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        No attendance records for {formatMonthLabel(month)}.
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  items.map((item) => (
+                    <TableRow key={item.attendance_id} hover>
+                      <TableCell>{formatDate(item.date)}</TableCell>
+                      <TableCell>{dash(item.work_start)}</TableCell>
+                      <TableCell>{dash(item.work_end)}</TableCell>
+                      <TableCell>{dash(item.checkin_time)}</TableCell>
+                      <TableCell>{dash(item.checkout_time)}</TableCell>
+                      <TableCell align="right">{item.missing_minutes}</TableCell>
+                      <TableCell align="right">
+                        {parseFloat(item.total_workday).toFixed(4)}
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          size="small"
+                          label={STATUS_LABEL[item.status]}
+                          color={STATUS_COLOR[item.status]}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </TableContainer>
