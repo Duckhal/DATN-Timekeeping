@@ -115,4 +115,18 @@ void DisplayService::showCheckinDenied() {
   display_.drawCenteredText("Check-in failed", 96, ST77XX_RED, 2);
   display_.drawCenteredText("Please try again", 130, ST77XX_WHITE, 2);
 }
+
+void DisplayService::showAlreadyCheckedIn(const String& employeeName) {
+  display_.clear(ST77XX_BLACK);
+  display_.drawCenteredText("Already checked in", 86, ST77XX_YELLOW, 2);
+  if (employeeName.length() > 0) {
+    display_.drawCenteredText(employeeName, 124, ST77XX_YELLOW, 2);
+  }
+}
+
+void DisplayService::showCardNotRecognized() {
+  display_.clear(ST77XX_BLACK);
+  display_.drawCenteredText("Card not recognized", 96, ST77XX_RED, 2);
+  display_.drawCenteredText("Please try again", 130, ST77XX_WHITE, 2);
+}
 }  // namespace tk::services

@@ -12,6 +12,54 @@ void loop() {
   app.tick();
 }
 
+// // --- RFID raw UID test (temporary) ---
+// // Uncomment this block and comment out the App code above when you want to
+// // test RC522 wiring/pins. It logs raw UID bytes to Serial.
+// #include <Arduino.h>
+// #include <SPI.h>
+// #include <MFRC522.h>
+
+// constexpr uint8_t kRfidCs = 22;
+// constexpr uint8_t kRfidRst = 21;
+// constexpr uint8_t kRfidMiso = 27;
+// constexpr uint8_t kRfidMosi = 26;
+// constexpr uint8_t kRfidSck = 25;
+
+// MFRC522 mfrc522(kRfidCs, kRfidRst);
+
+// void setup() {
+//   Serial.begin(115200);
+  
+//   // ĐIỂM MẤU CHỐT: Ép ESP32 dùng đúng bộ chân SPI của bạn
+//   SPI.begin(kRfidSck, kRfidMiso, kRfidMosi, kRfidCs); 
+  
+//   mfrc522.PCD_Init(); 
+
+//   Serial.println("\n--- TEST KET NOI RC522 (CUSTOM PINS) ---");
+  
+//   byte version = mfrc522.PCD_ReadRegister(mfrc522.VersionReg);
+//   Serial.print("Firmware Version: 0x");
+//   Serial.println(version, HEX);
+
+//   if (version == 0x00 || version == 0xFF) {
+//     Serial.println("[LOI] Khong tim thay RC522. Kiem tra lai day jumper (co the bi long/dut ngam)!");
+//   } else {
+//     Serial.println("[OK] Giao tiep SPI thanh cong. Hay thu quet the nhe!");
+//   }
+// }
+
+// void loop() {
+//   if (mfrc522.PICC_IsNewCardPresent() && mfrc522.PICC_ReadCardSerial()) {
+//     Serial.print("Tim thay the! UID (Hex): ");
+//     for (byte i = 0; i < mfrc522.uid.size; i++) {
+//       if (mfrc522.uid.uidByte[i] < 0x10) Serial.print("0");
+//       Serial.print(mfrc522.uid.uidByte[i], HEX);
+//     }
+//     Serial.println();
+//     mfrc522.PICC_HaltA(); 
+//   }
+// }
+
 // #include <Arduino.h>
 // #include <Adafruit_Fingerprint.h>
 // #include "Config/Config.h"

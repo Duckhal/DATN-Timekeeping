@@ -8,9 +8,15 @@ App::App()
       fingerprintDriver_(fingerSerial_, config::gpio::kFingerprintRx,
                          config::gpio::kFingerprintTx,
                          config::fingerprint::kBaudRate),
+  rfidDriver_(config::gpio::kRfidSck,
+      config::gpio::kRfidMiso,
+      config::gpio::kRfidMosi,
+      config::gpio::kRfidCs,
+      config::gpio::kRfidRst),
       enrollmentService_(fingerprintDriver_, displayService_, networkService_),
       syncMappingService_(fingerprintDriver_, networkService_),
       checkinService_(fingerprintDriver_, displayService_, networkService_),
+  rfidService_(rfidDriver_, displayService_, networkService_),
       registrationService_(networkService_, displayService_),
       bootButtonDriver_(config::gpio::kBootButtonPin,
                         config::timing::kBootDebounceMs,
@@ -19,7 +25,8 @@ App::App()
       currentConfig_{},
       isPortalMode_(false),
       shouldRestartAfterSave_(false),
-      restartScheduledAtMs_(0) {}
+  restartScheduledAtMs_(0),
+  processingCheckin_(false) {}
 
 void App::begin() {
   Serial.begin(115200);
@@ -28,6 +35,7 @@ void App::begin() {
   bootButtonDriver_.begin();
   displayService_.begin();
   mqttService_.begin();
+  rfidService_.begin();
 
   if (!configService_.begin()) {
     Serial.println("[Config] Preferences init failed. Entering portal mode.");
@@ -195,9 +203,54 @@ void App::tick() {
       !enrollmentService_.isEnrolling() &&
       enrollmentService_.sensorReady();
 
-  if (checkinAllowed) {
-    checkinService_.tick(currentConfig_, config::network::kDeviceApiKey, true);
+  // Log gate state transitions once to avoid spamming the monitor.
+  {
+    static bool loggedOnce = false;
+    static bool lastAllowed = false;
+    static bool lastProcessing = false;
+    static bool lastSensorReady = false;
+    static bool lastEnrolling = false;
+    static services::DeviceRegistrationService::State lastRegState =
+        services::DeviceRegistrationService::State::FAILED;
+    static models::RemoteDeviceStatus lastRemoteStatus = models::RemoteDeviceStatus::UNKNOWN;
+
+    const bool sensorReady = enrollmentService_.sensorReady();
+    const bool enrolling = enrollmentService_.isEnrolling();
+    const services::DeviceRegistrationService::State regState = registrationService_.state();
+    const models::RemoteDeviceStatus remoteStatus = registrationService_.remoteStatus();
+
+    if (!loggedOnce || checkinAllowed != lastAllowed || processingCheckin_ != lastProcessing ||
+        sensorReady != lastSensorReady || enrolling != lastEnrolling ||
+        regState != lastRegState || remoteStatus != lastRemoteStatus) {
+      Serial.printf(
+          "[RFID] Gate allowed=%d processing=%d reg=%d remote=%d sensorReady=%d enrolling=%d\n",
+          checkinAllowed,
+          processingCheckin_,
+          static_cast<int>(regState),
+          static_cast<int>(remoteStatus),
+          sensorReady,
+          enrolling);
+      loggedOnce = true;
+      lastAllowed = checkinAllowed;
+      lastProcessing = processingCheckin_;
+      lastSensorReady = sensorReady;
+      lastEnrolling = enrolling;
+      lastRegState = regState;
+      lastRemoteStatus = remoteStatus;
+    }
   }
+
+  if (!processingCheckin_ && checkinAllowed) {
+    rfidService_.tick(currentConfig_, config::network::kDeviceApiKey, true);
+    if (!rfidService_.isBusy()) {
+      checkinService_.tick(currentConfig_, config::network::kDeviceApiKey, true);
+    }
+  } else {
+    rfidService_.tick(currentConfig_, config::network::kDeviceApiKey, false);
+    checkinService_.tick(currentConfig_, config::network::kDeviceApiKey, false);
+  }
+
+  processingCheckin_ = rfidService_.isBusy() || checkinService_.isBusy();
 
   if (registrationService_.state() == services::DeviceRegistrationService::State::SUCCESS &&
       registrationService_.remoteStatus() == models::RemoteDeviceStatus::ACTIVE) {

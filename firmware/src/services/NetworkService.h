@@ -54,6 +54,12 @@ class NetworkService {
                    const String& clientTxId,
                    String& outBody);
 
+  bool sendRfidCheckin(const models::DeviceConfig& config,
+                       const String& apiKey,
+                       const String& rfidTag,
+                       const String& clientTxId,
+                       String& outBody);
+
  private:
   String buildBaseUrl(const models::DeviceConfig& config) const;
   String buildAuthorization(const String& apiKey) const;

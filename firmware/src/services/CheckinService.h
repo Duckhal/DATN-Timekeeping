@@ -30,6 +30,7 @@ class CheckinService {
   void tick(const models::DeviceConfig& config,
             const String& apiKey,
             bool allowed);
+  bool isBusy() const;
 
  private:
   enum class State : uint8_t {

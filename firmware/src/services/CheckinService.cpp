@@ -23,10 +23,6 @@ CheckinService::CheckinService(drivers::FingerprintDriver& fingerprint,
 void CheckinService::tick(const models::DeviceConfig& config,
                           const String& apiKey,
                           bool allowed) {
-  if (!allowed) {
-    return;
-  }
-
   const uint32_t now = millis();
 
   if (state_ == State::SHOWING_RESULT) {
@@ -43,6 +39,10 @@ void CheckinService::tick(const models::DeviceConfig& config,
     if (imageResult == FINGERPRINT_NOFINGER) {
       state_ = State::IDLE;
     }
+    return;
+  }
+
+  if (!allowed) {
     return;
   }
 
@@ -119,8 +119,18 @@ void CheckinService::parseAndApply(uint16_t matchedId, const String& body) {
     return;
   }
 
+  if (status == "duplicate") {
+    const String name = doc["employee_name"] | "";
+    display_.showAlreadyCheckedIn(name);
+    return;
+  }
+
   Serial.printf("[Checkin] Unknown response status=%s\n", status.c_str());
   display_.showCheckinDenied();
+}
+
+bool CheckinService::isBusy() const {
+  return state_ != State::IDLE;
 }
 
 void CheckinService::enterResultState() {

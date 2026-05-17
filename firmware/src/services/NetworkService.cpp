@@ -210,12 +210,45 @@ bool NetworkService::sendCheckin(const models::DeviceConfig& config,
   }
 
   const String payload = String("{\"mac_addr\":\"") + macAddress() +
-                         "\",\"fingerprint_id\":" + String(fingerprintId) +
+                         "\",\"auth_method\":\"FINGERPRINT\"" +
+                         ",\"fingerprint_id\":" + String(fingerprintId) +
                          ",\"client_tx_id\":\"" + clientTxId + "\"}";
   const String url = buildBaseUrl(config) + config::network::kCheckinEndpoint;
 
   Serial.printf("[Checkin] Sending checkin fingerprint_id=%u tx=%s\n",
                 fingerprintId, clientTxId.c_str());
+
+  const models::HttpResponse response =
+      http_.postJson(url, payload, buildAuthorization(apiKey));
+
+  lastHttpStatusCode_ = response.statusCode;
+  outBody = response.body;
+  Serial.printf("[HTTP] POST %s -> %d\n", url.c_str(), response.statusCode);
+  Serial.printf("[HTTP] Response: %s\n", response.body.c_str());
+  return response.ok;
+}
+
+bool NetworkService::sendRfidCheckin(const models::DeviceConfig& config,
+                                     const String& apiKey,
+                                     const String& rfidTag,
+                                     const String& clientTxId,
+                                     String& outBody) {
+  outBody = "";
+
+  if (wifiStatus() != WL_CONNECTED) {
+    Serial.println("[HTTP] Skip RFID checkin because WiFi is disconnected.");
+    lastHttpStatusCode_ = -1;
+    return false;
+  }
+
+  const String payload = String("{\"mac_addr\":\"") + macAddress() +
+                         "\",\"auth_method\":\"RFID\"" +
+                         ",\"rfid_tag\":\"" + rfidTag + "\"" +
+                         ",\"client_tx_id\":\"" + clientTxId + "\"}";
+  const String url = buildBaseUrl(config) + config::network::kCheckinEndpoint;
+
+  Serial.printf("[RFID] Sending checkin rfid_tag=%s tx=%s\n",
+                rfidTag.c_str(), clientTxId.c_str());
 
   const models::HttpResponse response =
       http_.postJson(url, payload, buildAuthorization(apiKey));

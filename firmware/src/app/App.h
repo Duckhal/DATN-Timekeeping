@@ -5,6 +5,7 @@
 #include "drivers/FingerprintDriver.h"
 #include "drivers/MqttClientDriver.h"
 #include "drivers/PortalDriver.h"
+#include "drivers/RfidDriver.h"
 #include "models/DeviceConfig.h"
 #include "services/ConfigService.h"
 #include "services/CheckinService.h"
@@ -13,6 +14,7 @@
 #include "services/EnrollmentService.h"
 #include "services/MqttService.h"
 #include "services/NetworkService.h"
+#include "services/RfidService.h"
 #include "services/SyncMappingService.h"
 
 namespace tk::app {
@@ -41,9 +43,11 @@ class App {
 
   HardwareSerial fingerSerial_;
   drivers::FingerprintDriver fingerprintDriver_;
+  drivers::RfidDriver rfidDriver_;
   services::EnrollmentService enrollmentService_;
   services::SyncMappingService syncMappingService_;
   services::CheckinService checkinService_;
+  services::RfidService rfidService_;
 
   services::DeviceRegistrationService registrationService_;
   drivers::BootButtonDriver bootButtonDriver_;
@@ -53,5 +57,6 @@ class App {
   bool isPortalMode_;
   bool shouldRestartAfterSave_;
   uint32_t restartScheduledAtMs_;
+  bool processingCheckin_;
 };
 }  // namespace tk::app

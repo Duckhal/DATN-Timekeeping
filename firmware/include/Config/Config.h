@@ -13,6 +13,12 @@ constexpr uint8_t kTftRst = 4;
 constexpr uint8_t kTftDc = 15;
 constexpr uint8_t kTftMosi = 23;
 constexpr uint8_t kTftSclk = 18;
+
+constexpr uint8_t kRfidCs = 22;
+constexpr uint8_t kRfidRst = 21;
+constexpr uint8_t kRfidMiso = 27;
+constexpr uint8_t kRfidMosi = 26;
+constexpr uint8_t kRfidSck = 25;
 }  // namespace gpio
 
 namespace timing {
@@ -31,7 +37,7 @@ constexpr uint8_t kSyncMappingMaxAttempts = 3;
 namespace network {
 constexpr const char* kDefaultSsid = "GalaxyA53";
 constexpr const char* kDefaultPassword = "oysl4029";
-constexpr const char* kDefaultServerIp = "192.168.111.16";
+constexpr const char* kDefaultServerIp = "192.168.255.16";
 constexpr const char* kDefaultDeviceName = "ESP32-Timekeeping-Device";
 constexpr uint16_t kDefaultServerPort = 3000;
 constexpr uint16_t kMqttPort = 1883;

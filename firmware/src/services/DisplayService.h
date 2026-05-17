@@ -28,6 +28,8 @@ class DisplayService {
   void showSettingsCleared();
   void showCheckinSuccess(const String& employeeName);
   void showCheckinDenied();
+  void showAlreadyCheckedIn(const String& employeeName);
+  void showCardNotRecognized();
 
  private:
    drivers::TftDriver display_;
