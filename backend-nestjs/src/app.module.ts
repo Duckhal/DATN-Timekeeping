@@ -10,6 +10,7 @@ import { DevicesModule } from './devices/devices.module';
 import { CredentialsModule } from './credentials/credentials.module';
 import { MqttModule } from './mqtt/mqtt.module';
 import { CheckinModule } from './checkin/checkin.module';
+import { AttendanceModule } from './attendance/attendance.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { CheckinModule } from './checkin/checkin.module';
     CredentialsModule,
     MqttModule,
     CheckinModule,
+    AttendanceModule,
   ],
   controllers: [AppController],
   providers: [AppService],
