@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -6,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PrismaService } from '../prisma/prisma.service';
+import { CheckinDto } from './dto/checkin.dto';
 
 /**
  * Response shape returned to the firmware.
@@ -23,8 +25,14 @@ export type CheckinResponse =
     }
   | {
       status: 'invalid_credential';
-      action: 'FORCE_DELETE_LOCAL';
-      local_id: number;
+      action?: 'FORCE_DELETE_LOCAL';
+      local_id?: number;
+    }
+  | {
+      status: 'duplicate';
+      employee_id: number;
+      employee_name: string;
+      last_at: string;
     };
 
 @Injectable()
@@ -36,15 +44,21 @@ export class CheckinService {
    * Timekeeping.md §2.2 "Midnight crossing".
    */
   private static readonly MIDNIGHT_GRACE_HOUR = 4;
+  private static readonly DUPLICATE_WINDOW_MS = 10_000;
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async handle(
-    mac_addr: string,
-    fingerprintId: number,
-    clientTxId: string,
-  ): Promise<CheckinResponse> {
+  async handle(dto: CheckinDto): Promise<CheckinResponse> {
     const now = new Date();
+    const { mac_addr, auth_method, fingerprint_id, rfid_tag, client_tx_id } = dto;
+
+    if (auth_method === 'FINGERPRINT' && !fingerprint_id) {
+      throw new BadRequestException('fingerprint_id is required for FINGERPRINT checkin.');
+    }
+
+    if (auth_method === 'RFID' && !rfid_tag) {
+      throw new BadRequestException('rfid_tag is required for RFID checkin.');
+    }
 
     const device = await this.prisma.device.findUnique({
       where: { mac_addr },
@@ -59,28 +73,79 @@ export class CheckinService {
       throw new ForbiddenException(`Device ${mac_addr} is not ACTIVE.`);
     }
 
-    const mapping = await this.prisma.mapping.findUnique({
-      where: {
-        device_id_fingerprint_id: {
-          device_id: device.device_id,
-          fingerprint_id: fingerprintId,
-        },
-      },
-      select: { employee_id: true },
-    });
+    let employeeId = 0;
+    let employeeName = '';
 
-    if (!mapping) {
-      this.logger.warn(
-        `[Checkin] Ghost credential device=${device.device_id} fp=${fingerprintId} → FORCE_DELETE_LOCAL`,
-      );
-      return {
-        status: 'invalid_credential',
-        action: 'FORCE_DELETE_LOCAL',
-        local_id: fingerprintId,
-      };
+    if (auth_method === 'FINGERPRINT') {
+      const mapping = await this.prisma.mapping.findUnique({
+        where: {
+          device_id_fingerprint_id: {
+            device_id: device.device_id,
+            fingerprint_id: fingerprint_id!,
+          },
+        },
+        select: { employee_id: true },
+      });
+
+      if (!mapping) {
+        this.logger.warn(
+          `[Checkin] Ghost credential device=${device.device_id} fp=${fingerprint_id} → FORCE_DELETE_LOCAL`,
+        );
+        return {
+          status: 'invalid_credential',
+          action: 'FORCE_DELETE_LOCAL',
+          local_id: fingerprint_id!,
+        };
+      }
+
+      employeeId = mapping.employee_id;
+    } else {
+      const employee = await this.prisma.employee.findUnique({
+        where: { rfid_tag: rfid_tag! },
+        select: { employee_id: true, full_name: true },
+      });
+
+      if (!employee) {
+        this.logger.warn(`[Checkin] Unknown RFID tag=${rfid_tag}`);
+        return {
+          status: 'invalid_credential',
+        };
+      }
+
+      employeeId = employee.employee_id;
+      employeeName = employee.full_name ?? '';
     }
 
-    const employeeId = mapping.employee_id;
+    const tenSecondsAgo = new Date(now.getTime() - CheckinService.DUPLICATE_WINDOW_MS);
+    const recent = await this.prisma.checkInLog.findFirst({
+      where: {
+        employee_id: employeeId,
+        timestamp: { gte: tenSecondsAgo },
+      },
+      orderBy: { timestamp: 'desc' },
+      select: { timestamp: true },
+    });
+
+    if (recent) {
+      if (!employeeName) {
+        const employee = await this.prisma.employee.findUnique({
+          where: { employee_id: employeeId },
+          select: { full_name: true },
+        });
+        employeeName = employee?.full_name ?? '';
+      }
+
+      this.logger.log(
+        `[Checkin] Duplicate scan employee=${employeeId} within debounce window`,
+      );
+
+      return {
+        status: 'duplicate',
+        employee_id: employeeId,
+        employee_name: employeeName,
+        last_at: recent.timestamp.toISOString(),
+      };
+    }
     const targetDate = this.resolveAttendanceDate(now);
 
     return this.prisma.$transaction(async (tx) => {
@@ -92,17 +157,17 @@ export class CheckinService {
             employee_id: employeeId,
             device_id: device.device_id,
             timestamp: now,
-            auth_method: 'FINGERPRINT',
-            sync_hash: clientTxId,
+            auth_method,
+            sync_hash: client_tx_id,
           },
         });
       } catch (err) {
         if (err instanceof PrismaClientKnownRequestError && err.code === 'P2002') {
           this.logger.log(
-            `[Checkin] Idempotent retry employee=${employeeId} tx=${clientTxId}`,
+            `[Checkin] Idempotent retry employee=${employeeId} tx=${client_tx_id}`,
           );
           const existing = await tx.checkInLog.findUnique({
-            where: { sync_hash: clientTxId },
+            where: { sync_hash: client_tx_id },
             select: { employee_id: true, timestamp: true },
           });
           if (existing) {

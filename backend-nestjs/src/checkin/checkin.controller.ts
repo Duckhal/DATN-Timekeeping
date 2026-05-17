@@ -20,6 +20,6 @@ export class CheckinController {
   @HttpCode(HttpStatus.OK)
   @Post('checkin')
   checkin(@Body() dto: CheckinDto) {
-    return this.checkinService.handle(dto.mac_addr, dto.fingerprint_id, dto.client_tx_id);
+    return this.checkinService.handle(dto);
   }
 }
