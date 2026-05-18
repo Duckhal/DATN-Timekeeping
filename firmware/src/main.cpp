@@ -12,9 +12,9 @@ void loop() {
   app.tick();
 }
 
-// // --- RFID raw UID test (temporary) ---
-// // Uncomment this block and comment out the App code above when you want to
-// // test RC522 wiring/pins. It logs raw UID bytes to Serial.
+// --- RFID raw UID test (temporary) ---
+// Uncomment this block and comment out the App code above when you want to
+// test RC522 wiring/pins. It logs raw UID bytes to Serial.
 // #include <Arduino.h>
 // #include <SPI.h>
 // #include <MFRC522.h>
