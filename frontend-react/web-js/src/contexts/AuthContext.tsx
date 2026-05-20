@@ -8,14 +8,17 @@ import type { Employee } from '../types/auth'
 type LoginResult = {
   ok: boolean
   message?: string
+  mustChangePassword?: boolean
 }
 
 type AuthContextValue = {
   isBootstrapping: boolean
   isAuthenticated: boolean
+  requiresPasswordChange: boolean
   profile: Employee | null
   login: (email: string, password: string) => Promise<LoginResult>
   logout: () => void
+  onPasswordChanged: (token: string, user: Employee) => void
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null)
@@ -23,6 +26,7 @@ export const AuthContext = createContext<AuthContextValue | null>(null)
 export function AuthProvider({ children }: PropsWithChildren) {
   const [isBootstrapping, setIsBootstrapping] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [requiresPasswordChange, setRequiresPasswordChange] = useState(false)
   const [profile, setProfile] = useState<Employee | null>(null)
 
   useEffect(() => {
@@ -38,6 +42,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
         const me = await getMe()
         setProfile(me)
         setIsAuthenticated(true)
+        if (me.must_change_password) {
+          setRequiresPasswordChange(true)
+        }
       } catch {
         localStorage.removeItem(AUTH_TOKEN_KEY)
         setProfile(null)
@@ -54,6 +61,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     () => ({
       isBootstrapping,
       isAuthenticated,
+      requiresPasswordChange,
       profile,
       login: async (nextEmail: string, password: string) => {
         if (!nextEmail.trim() || !password.trim()) {
@@ -70,8 +78,17 @@ export function AuthProvider({ children }: PropsWithChildren) {
           })
 
           localStorage.setItem(AUTH_TOKEN_KEY, response.access_token)
-          setProfile(response.user)
+
+          if (response.must_change_password) {
+            setRequiresPasswordChange(true)
+            setIsAuthenticated(true)
+            setProfile(null)
+            return { ok: true, mustChangePassword: true }
+          }
+
+          setProfile(response.user as Employee)
           setIsAuthenticated(true)
+          setRequiresPasswordChange(false)
 
           return { ok: true }
         } catch (error) {
@@ -79,32 +96,34 @@ export function AuthProvider({ children }: PropsWithChildren) {
           const backendMessage = maybeAxiosError.response?.data?.message
 
           if (typeof backendMessage === 'string' && backendMessage.length > 0) {
-            return {
-              ok: false,
-              message: backendMessage,
-            }
+            return { ok: false, message: backendMessage }
           }
 
           if (!maybeAxiosError.response) {
             return {
               ok: false,
-              message: 'Cannot connect to server. Please check backend and CORS settings.',
+              message:
+                'Cannot connect to server. Please check backend and CORS settings.',
             }
           }
 
-          return {
-            ok: false,
-            message: 'Login failed. Please try again.',
-          }
+          return { ok: false, message: 'Login failed. Please try again.' }
         }
       },
       logout: () => {
         localStorage.removeItem(AUTH_TOKEN_KEY)
         setProfile(null)
         setIsAuthenticated(false)
+        setRequiresPasswordChange(false)
+      },
+      onPasswordChanged: (token: string, user: Employee) => {
+        localStorage.setItem(AUTH_TOKEN_KEY, token)
+        setProfile(user)
+        setIsAuthenticated(true)
+        setRequiresPasswordChange(false)
       },
     }),
-    [isAuthenticated, isBootstrapping, profile],
+    [isAuthenticated, isBootstrapping, profile, requiresPasswordChange],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

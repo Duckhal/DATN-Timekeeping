@@ -6,6 +6,8 @@ import { PortalPage } from './pages/PortalPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { DevicesPage } from './pages/DevicesPage'
 import { CredentialsPage } from './pages/CredentialsPage'
+import { ChangePasswordPage } from './pages/ChangePasswordPage'
+import { EmployeesPage } from './pages/EmployeesPage'
 import { AppThemeProvider } from './providers/theme/AppThemeProvider'
 
 function App() {
@@ -20,6 +22,8 @@ function App() {
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/devices" element={<DevicesPage />} />
               <Route path="/credentials" element={<CredentialsPage />} />
+              <Route path="/employees" element={<EmployeesPage />} />
+              <Route path="/change-password" element={<ChangePasswordPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>

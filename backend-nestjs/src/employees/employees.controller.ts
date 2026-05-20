@@ -19,14 +19,12 @@ import { Roles } from '../auth/decorators/roles.decorator';
 export class EmployeesController {
   constructor(private readonly employeesService: EmployeesService) {}
 
-  // UC0b — HR creates a new employee account
   @Post()
   @Roles('HR')
   create(@Body() dto: CreateEmployeeDto) {
     return this.employeesService.create(dto);
   }
 
-  // HR dashboard — list all employees
   @Get()
   @Roles('HR')
   findAll() {
@@ -39,8 +37,6 @@ export class EmployeesController {
     return this.employeesService.findUnassignedCredentials();
   }
 
-  // Single employee — accessible to authenticated employees (own profile or HR)
-  // Protected by global JwtAuthGuard inherently, no specific role needed
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.employeesService.findById(id);
@@ -53,6 +49,12 @@ export class EmployeesController {
     @Body() dto: AssignRfidDto,
   ) {
     return this.employeesService.assignRfid(id, dto.rfid_tag);
+  }
+
+  @Patch(':id/reset-password')
+  @Roles('HR')
+  resetPassword(@Param('id', ParseIntPipe) id: number) {
+    return this.employeesService.resetPassword(id);
   }
 
   @Delete(':id/credentials')

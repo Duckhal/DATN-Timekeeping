@@ -10,8 +10,8 @@ import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import type { AuthMethod, PublicEmployeeProfile } from '../types';
 import * as argon2 from 'argon2';
+import * as crypto from 'crypto';
 
-// Fields returned in all public-facing responses — password_hash is never included
 const SAFE_SELECT = {
   employee_id: true,
   email: true,
@@ -21,6 +21,7 @@ const SAFE_SELECT = {
   hourly_rate: true,
   rfid_tag: true,
   template_fingerprint: true,
+  must_change_password: true,
   created_at: true,
   updated_at: true,
 };
@@ -38,21 +39,40 @@ export class EmployeesService {
     private readonly mqttService: MqttService,
   ) {}
 
-  // UC0b — HR creates a new employee account
+  private generatePassword(length = 8): string {
+    const charset = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$';
+    const bytes = crypto.randomBytes(length);
+    let password = '';
+    for (let i = 0; i < length; i++) {
+      password += charset[bytes[i] % charset.length];
+    }
+    return password;
+  }
+
   async create(dto: CreateEmployeeDto) {
-    const password_hash = await argon2.hash(dto.password);
+    const generatedPassword = this.generatePassword();
+    const password_hash = await argon2.hash(generatedPassword);
 
     try {
-      return await this.prisma.employee.create({
+      const employee = await this.prisma.employee.create({
         data: {
           email: dto.email,
           password_hash,
           full_name: dto.full_name,
           role: dto.role,
           hourly_rate: dto.hourly_rate,
+          date_of_birth: dto.date_of_birth
+            ? new Date(dto.date_of_birth)
+            : undefined,
+          must_change_password: true,
         },
         select: SAFE_SELECT,
       });
+
+      return {
+        ...this.toPublicEmployee(employee),
+        generated_password: generatedPassword,
+      };
     } catch (err) {
       if (err instanceof PrismaClientKnownRequestError && err.code === 'P2002') {
         throw new ConflictException(
@@ -63,7 +83,6 @@ export class EmployeesService {
     }
   }
 
-  // HR dashboard — list all employees (no password_hash)
   async findAll() {
     return this.prisma.employee.findMany({ select: SAFE_SELECT });
   }
@@ -78,7 +97,6 @@ export class EmployeesService {
     });
   }
 
-  // Single employee lookup — used by employee's own profile view
   async findById(empId: number) {
     const employee = await this.prisma.employee.findUnique({
       where: { employee_id: empId },
@@ -90,15 +108,12 @@ export class EmployeesService {
     return employee;
   }
 
-  // Internal-only — used by AuthService for login (includes password_hash)
   async findByUsername(username: string) {
     return this.prisma.employee.findUnique({
       where: { email: username },
-      // NOTE: intentionally returns full record with password_hash — auth use only
     });
   }
 
-  // Internal-only — alias for auth login semantics where username is an email.
   async findByEmail(email: string) {
     return this.findByUsername(email);
   }
@@ -120,6 +135,26 @@ export class EmployeesService {
     }
   }
 
+  async resetPassword(empId: number) {
+    await this.findById(empId);
+
+    const generatedPassword = this.generatePassword();
+    const password_hash = await argon2.hash(generatedPassword);
+
+    const employee = await this.prisma.employee.update({
+      where: { employee_id: empId },
+      data: { password_hash, must_change_password: true },
+      select: SAFE_SELECT,
+    });
+
+    this.logger.log(`[ResetPassword] employee=${empId} password reset by HR`);
+
+    return {
+      ...this.toPublicEmployee(employee),
+      generated_password: generatedPassword,
+    };
+  }
+
   async removeCredentialIdentifier(empId: number, type: AuthMethod) {
     await this.findById(empId);
 
@@ -131,17 +166,6 @@ export class EmployeesService {
       });
     }
 
-    // FINGERPRINT removal is split in two phases so MQTT publishing can never
-    // run inside a DB transaction (it is not rollback-able).
-    //
-    // Phase 1 (transactional, authoritative):
-    //   - Snapshot every (device mac, local fingerprint slot) that will be
-    //     orphaned, then delete mappings + clear the master template.
-    //
-    // Phase 2 (post-commit, fire-and-forget):
-    //   - Publish DELETE_FINGER to each device's private command topic.
-    //   - Offline devices miss this message, but the self-healing ghost path
-    //     in the check-in endpoint will clean them up later.
     const { updated, targets } = await this.prisma.$transaction(async (tx) => {
       const mappings = await tx.mapping.findMany({
         where: {
@@ -195,7 +219,6 @@ export class EmployeesService {
     return updated;
   }
 
-  // Shared mapper for API contracts that expose `email` and `employee_id` fields.
   toPublicEmployee(employee: EmployeeSafe): PublicEmployeeProfile {
     return {
       employee_id: employee.employee_id,
@@ -206,6 +229,7 @@ export class EmployeesService {
       hourly_rate: String(employee.hourly_rate),
       rfid_tag: employee.rfid_tag,
       template_fingerprint: employee.template_fingerprint,
+      must_change_password: employee.must_change_password,
       created_at: employee.created_at,
       updated_at: employee.updated_at,
     };

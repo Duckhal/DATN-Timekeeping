@@ -9,36 +9,30 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
+import { ScopeGuard } from './guards/scope.guard';
 
 @Module({
   imports: [
     EmployeesModule,
     PassportModule,
     JwtModule.registerAsync({
-      imports: [ConfigModule], // Need to import ConfigModule locally to inject ConfigService
+      imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: async (configService: ConfigService) => ({
         secret: configService.get<string>('JWT_SECRET'),
-        signOptions: { 
-          expiresIn: (configService.get<string>('JWT_EXPIRES_IN') || '1h') as any 
+        signOptions: {
+          expiresIn: (configService.get<string>('JWT_EXPIRES_IN') || '1h') as any,
         },
       }),
     }),
   ],
   controllers: [AuthController],
   providers: [
-    AuthService, 
+    AuthService,
     JwtStrategy,
-    // Global Guard 1: Enforce JWT authentication on all routes (unless @Public)
-    {
-      provide: APP_GUARD,
-      useClass: JwtAuthGuard,
-    },
-    // Global Guard 2: Enforce RBAC on all routes where @Roles is present
-    {
-      provide: APP_GUARD,
-      useClass: RolesGuard,
-    },
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: RolesGuard },
+    { provide: APP_GUARD, useClass: ScopeGuard },
   ],
 })
 export class AuthModule {}

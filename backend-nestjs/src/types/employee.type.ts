@@ -10,6 +10,7 @@ export type Employee = {
   hourly_rate: string;
   rfid_tag: string | null;
   template_fingerprint: string | null;
+  must_change_password: boolean;
   created_at: Date;
   updated_at: Date;
 };

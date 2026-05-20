@@ -18,13 +18,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  // Passport automatically calls this after validating the JWT signature & expiration.
-  // The returned object is attached to `request.user`.
   async validate(payload: any) {
     return {
       employee_id: payload.employee_id ?? payload.sub,
       email: payload.email ?? payload.username,
       role: payload.role,
+      scope: payload.scope ?? 'full',
     };
   }
 }

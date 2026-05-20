@@ -62,9 +62,10 @@ model Employee {
   hourly_rate           Decimal           @db.Decimal(10, 2)
   rfid_tag              String?           @unique
   template_fingerprint  String?           @db.Text
+  must_change_password  Boolean           @default(true)
   mappings              Mapping[]
   created_at            DateTime          @default(now())
-  updated_at            DateTime          @updatedAt  
+  updated_at            DateTime          @updatedAt
 
   daily_attendances DailyAttendance[]
   monthly_limits    MonthlyLimit[]

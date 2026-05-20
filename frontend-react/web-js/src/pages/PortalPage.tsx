@@ -52,6 +52,9 @@ export function PortalPage() {
           </Typography>
           {profile?.role === 'HR' ? (
             <>
+              <Button size="small" onClick={() => navigate('/employees')} sx={{ textTransform: 'none' }}>
+                Employees
+              </Button>
               <Button size="small" onClick={() => navigate('/devices')} sx={{ textTransform: 'none' }}>
                 Devices
               </Button>

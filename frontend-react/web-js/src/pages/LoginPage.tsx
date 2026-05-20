@@ -31,6 +31,11 @@ export function LoginPage() {
       return
     }
 
+    if (result.mustChangePassword) {
+      navigate('/change-password', { replace: true })
+      return
+    }
+
     setError('')
     navigate('/portal', { replace: true })
   }

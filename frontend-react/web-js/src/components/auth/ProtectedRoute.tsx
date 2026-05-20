@@ -4,7 +4,7 @@ import { useAuth } from '../../hooks/useAuth'
 
 export function ProtectedRoute() {
   const location = useLocation()
-  const { isAuthenticated, isBootstrapping } = useAuth()
+  const { isAuthenticated, isBootstrapping, requiresPasswordChange } = useAuth()
 
   if (isBootstrapping) {
     return (
@@ -16,6 +16,10 @@ export function ProtectedRoute() {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />
+  }
+
+  if (requiresPasswordChange && location.pathname !== '/change-password') {
+    return <Navigate to="/change-password" replace />
   }
 
   return <Outlet />

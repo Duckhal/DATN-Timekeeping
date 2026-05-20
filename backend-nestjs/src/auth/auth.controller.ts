@@ -10,12 +10,14 @@ import {
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { Public } from './decorators/public.decorator';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 type JwtRequest = {
   user: {
     employee_id: number;
+    scope?: string;
   };
 };
 
@@ -28,6 +30,13 @@ export class AuthController {
   @Post('login')
   login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @Post('change-password')
+  changePassword(@Req() req: JwtRequest, @Body() dto: ChangePasswordDto) {
+    return this.authService.changePassword(req.user.employee_id, dto);
   }
 
   @UseGuards(JwtAuthGuard)

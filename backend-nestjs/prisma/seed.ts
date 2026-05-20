@@ -19,10 +19,10 @@ async function main() {
       role: 'HR',
       full_name: 'Demo HR User',
       hourly_rate: 60.0,
-      // Keep hardware assignments empty for HR demo account
       rfid_tag: null,
       template_fingerprint: null,
       date_of_birth: new Date('1998-05-20'),
+      must_change_password: false,
     },
     create: {
       email: hrEmail,
@@ -33,6 +33,7 @@ async function main() {
       rfid_tag: null,
       template_fingerprint: null,
       date_of_birth: new Date('1998-05-20'),
+      must_change_password: false,
     },
   });
 
