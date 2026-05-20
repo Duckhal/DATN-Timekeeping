@@ -61,8 +61,14 @@ export function PortalPage() {
               <Button size="small" onClick={() => navigate('/credentials')} sx={{ textTransform: 'none' }}>
                 Credentials
               </Button>
+              <Button size="small" onClick={() => navigate('/approvals')} sx={{ textTransform: 'none' }}>
+                Approvals
+              </Button>
             </>
           ) : null}
+          <Button size="small" onClick={() => navigate('/requests')} sx={{ textTransform: 'none' }}>
+            My Requests
+          </Button>
           <IconButton>
             <MenuRoundedIcon />
           </IconButton>
