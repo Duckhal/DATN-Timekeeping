@@ -22,6 +22,8 @@ const SAFE_SELECT = {
   rfid_tag: true,
   template_fingerprint: true,
   must_change_password: true,
+  manager_id: true,
+  manager: { select: { employee_id: true, email: true, full_name: true } },
   created_at: true,
   updated_at: true,
 };
@@ -49,7 +51,7 @@ export class EmployeesService {
     return password;
   }
 
-  async create(dto: CreateEmployeeDto) {
+  async create(dto: CreateEmployeeDto, creatorId: number) {
     const generatedPassword = this.generatePassword();
     const password_hash = await argon2.hash(generatedPassword);
 
@@ -65,6 +67,7 @@ export class EmployeesService {
             ? new Date(dto.date_of_birth)
             : undefined,
           must_change_password: true,
+          manager_id: creatorId,
         },
         select: SAFE_SELECT,
       });
@@ -84,7 +87,10 @@ export class EmployeesService {
   }
 
   async findAll() {
-    return this.prisma.employee.findMany({ select: SAFE_SELECT });
+    return this.prisma.employee.findMany({
+      select: SAFE_SELECT,
+      orderBy: { employee_id: 'asc' },
+    });
   }
 
   async findUnassignedCredentials() {
@@ -230,6 +236,8 @@ export class EmployeesService {
       rfid_tag: employee.rfid_tag,
       template_fingerprint: employee.template_fingerprint,
       must_change_password: employee.must_change_password,
+      manager_id: employee.manager_id,
+      manager: employee.manager ?? null,
       created_at: employee.created_at,
       updated_at: employee.updated_at,
     };

@@ -8,6 +8,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
 } from '@nestjs/common';
 import { EmployeesService } from './employees.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
@@ -15,14 +16,16 @@ import { AssignRfidDto } from './dto/assign-rfid.dto';
 import { RemoveCredentialsDto } from './dto/remove-credentials.dto';
 import { Roles } from '../auth/decorators/roles.decorator';
 
+type JwtRequest = { user: { employee_id: number } };
+
 @Controller('employees')
 export class EmployeesController {
   constructor(private readonly employeesService: EmployeesService) {}
 
   @Post()
   @Roles('HR')
-  create(@Body() dto: CreateEmployeeDto) {
-    return this.employeesService.create(dto);
+  create(@Req() req: JwtRequest, @Body() dto: CreateEmployeeDto) {
+    return this.employeesService.create(dto, req.user.employee_id);
   }
 
   @Get()

@@ -11,8 +11,11 @@ export type Employee = {
   rfid_tag: string | null;
   template_fingerprint: string | null;
   must_change_password: boolean;
+  manager_id: number | null;
   created_at: Date;
   updated_at: Date;
 };
 
-export type PublicEmployeeProfile = Omit<Employee, 'password_hash'>;
+export type PublicEmployeeProfile = Omit<Employee, 'password_hash'> & {
+  manager?: { employee_id: number; email: string; full_name: string } | null;
+};

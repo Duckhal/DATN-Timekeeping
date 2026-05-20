@@ -31,10 +31,12 @@ import {
   getAllEmployees,
   resetEmployeePassword,
 } from '../apis/employeeService'
+import { useAuth } from '../hooks/useAuth'
 import type { Employee } from '../types/auth'
 
 export function EmployeesPage() {
   const navigate = useNavigate()
+  const { profile } = useAuth()
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -146,6 +148,7 @@ export function EmployeesPage() {
               <TableCell>Email</TableCell>
               <TableCell>Full Name</TableCell>
               <TableCell>Role</TableCell>
+              <TableCell>Manager</TableCell>
               <TableCell>Status</TableCell>
               <TableCell align="center">Actions</TableCell>
             </TableRow>
@@ -153,13 +156,13 @@ export function EmployeesPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                   Loading…
                 </TableCell>
               </TableRow>
             ) : employees.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                   No employees found.
                 </TableCell>
               </TableRow>
@@ -176,6 +179,7 @@ export function EmployeesPage() {
                       color={emp.role === 'HR' ? 'primary' : 'default'}
                     />
                   </TableCell>
+                  <TableCell>{emp.manager?.email?.split('@')[0] ?? '—'}</TableCell>
                   <TableCell>
                     {emp.must_change_password ? (
                       <Chip size="small" label="Pending Setup" color="warning" />
@@ -234,6 +238,13 @@ export function EmployeesPage() {
               onChange={(e) => setFormDob(e.target.value)}
               fullWidth
               InputLabelProps={{ shrink: true }}
+            />
+            <TextField
+              label="Manager (Approver)"
+              value={profile?.email?.split('@')[0] ?? ''}
+              fullWidth
+              InputProps={{ readOnly: true }}
+              helperText="Auto-assigned to the account creator"
             />
           </Stack>
         </DialogContent>
