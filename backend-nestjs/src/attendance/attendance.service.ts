@@ -131,4 +131,33 @@ export class AttendanceService {
     const day = String(d.getDate()).padStart(2, '0');
     return `${y}-${m}-${day}`;
   }
+
+  async findMissingCheckoutDays(employeeId: number) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const rows = await this.prisma.dailyAttendance.findMany({
+      where: {
+        employee_id: employeeId,
+        checkin_time: { not: null },
+        checkout_time: null,
+        date: { lt: today },
+      },
+      orderBy: { date: 'desc' },
+      take: 30,
+      select: {
+        attendance_id: true,
+        date: true,
+        checkin_time: true,
+      },
+    });
+
+    return rows.map((row) => ({
+      attendance_id: row.attendance_id.toString(),
+      date: this.formatDate(row.date),
+      checkin_time: row.checkin_time
+        ? `${String(row.checkin_time.getHours()).padStart(2, '0')}:${String(row.checkin_time.getMinutes()).padStart(2, '0')}`
+        : null,
+    }));
+  }
 }

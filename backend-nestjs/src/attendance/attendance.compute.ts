@@ -54,7 +54,7 @@ export type AttendanceComputed = {
  * input is null. Uses local hours to match how Postgres `time` columns are
  * read by Prisma (no timezone metadata).
  */
-function toSecondsOfDay(t: Date | null | undefined): number | null {
+export function toSecondsOfDay(t: Date | null | undefined): number | null {
   if (!t) return null;
   return t.getHours() * SECONDS_PER_HOUR + t.getMinutes() * 60 + t.getSeconds();
 }

@@ -20,6 +20,12 @@ export class AttendanceController {
     return this.attendanceService.listForEmployee(req.user.employee_id, query);
   }
 
+  // Employee — list past days with missing checkout (for explanation form).
+  @Get('attendance/me/missing-checkout')
+  findMissingCheckout(@Req() req: JwtRequest) {
+    return this.attendanceService.findMissingCheckoutDays(req.user.employee_id);
+  }
+
   // HR — read attendance for any employee.
   @Get('employees/:id/attendance')
   @Roles('HR')
