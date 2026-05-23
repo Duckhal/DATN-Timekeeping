@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
+import { NotificationProvider } from './contexts/NotificationContext'
 import { ProtectedRoute } from './components/auth/ProtectedRoute'
 import { LoginPage } from './pages/LoginPage'
 import { PortalPage } from './pages/PortalPage'
@@ -16,22 +17,24 @@ function App() {
   return (
     <AppThemeProvider>
       <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route element={<ProtectedRoute />}>
-              <Route path="/portal" element={<PortalPage />} />
-              <Route path="/profile" element={<ProfilePage />} />
-              <Route path="/devices" element={<DevicesPage />} />
-              <Route path="/credentials" element={<CredentialsPage />} />
-              <Route path="/employees" element={<EmployeesPage />} />
-              <Route path="/requests" element={<RequestsPage />} />
-              <Route path="/approvals" element={<ApprovalsPage />} />
-              <Route path="/change-password" element={<ChangePasswordPage />} />
-            </Route>
-            <Route path="*" element={<Navigate to="/login" replace />} />
-          </Routes>
-        </BrowserRouter>
+        <NotificationProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route element={<ProtectedRoute />}>
+                <Route path="/portal" element={<PortalPage />} />
+                <Route path="/profile" element={<ProfilePage />} />
+                <Route path="/devices" element={<DevicesPage />} />
+                <Route path="/credentials" element={<CredentialsPage />} />
+                <Route path="/employees" element={<EmployeesPage />} />
+                <Route path="/requests" element={<RequestsPage />} />
+                <Route path="/approvals" element={<ApprovalsPage />} />
+                <Route path="/change-password" element={<ChangePasswordPage />} />
+              </Route>
+              <Route path="*" element={<Navigate to="/login" replace />} />
+            </Routes>
+          </BrowserRouter>
+        </NotificationProvider>
       </AuthProvider>
     </AppThemeProvider>
   )

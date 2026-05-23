@@ -3,24 +3,33 @@ import type { MouseEvent } from 'react'
 import {
   AppBar,
   Avatar,
+  Badge,
   Box,
   Button,
+  Divider,
   IconButton,
+  List,
+  ListItemButton,
+  ListItemText,
   Menu,
   MenuItem,
+  Popover,
   Toolbar,
   Typography,
 } from '@mui/material'
 import FaceRoundedIcon from '@mui/icons-material/FaceRounded'
-import MenuRoundedIcon from '@mui/icons-material/MenuRounded'
+import NotificationsRoundedIcon from '@mui/icons-material/NotificationsRounded'
 import { useNavigate } from 'react-router-dom'
 import { PortalDashboard } from '../components/portal/PortalDashboard'
 import { useAuth } from '../hooks/useAuth'
+import { useNotifications } from '../contexts/NotificationContext'
 
 export function PortalPage() {
   const navigate = useNavigate()
   const { profile, logout } = useAuth()
+  const { unreadCount, notifications, handleMarkAsRead, handleMarkAllAsRead } = useNotifications()
   const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null)
+  const [notifAnchorEl, setNotifAnchorEl] = useState<null | HTMLElement>(null)
   const isUserMenuOpen = Boolean(menuAnchorEl)
 
   const local = profile?.email?.split('@')[0] ?? ''
@@ -69,8 +78,10 @@ export function PortalPage() {
           <Button size="small" onClick={() => navigate('/requests')} sx={{ textTransform: 'none' }}>
             My Requests
           </Button>
-          <IconButton>
-            <MenuRoundedIcon />
+          <IconButton onClick={(e) => setNotifAnchorEl(e.currentTarget)}>
+            <Badge badgeContent={unreadCount} color="error">
+              <NotificationsRoundedIcon />
+            </Badge>
           </IconButton>
           <Button
             size="small"
@@ -107,6 +118,47 @@ export function PortalPage() {
               Log out
             </MenuItem>
           </Menu>
+          <Popover
+            open={Boolean(notifAnchorEl)}
+            anchorEl={notifAnchorEl}
+            onClose={() => setNotifAnchorEl(null)}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+          >
+            <Box sx={{ width: 340, maxHeight: 400, overflow: 'auto' }}>
+              <Box sx={{ px: 2, py: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography fontWeight={600} variant="subtitle1">Notifications</Typography>
+                {unreadCount > 0 && (
+                  <Button size="small" onClick={() => { void handleMarkAllAsRead() }}>
+                    Mark all read
+                  </Button>
+                )}
+              </Box>
+              <Divider />
+              {notifications.length === 0 ? (
+                <Typography variant="body2" color="text.secondary" sx={{ p: 2, textAlign: 'center' }}>
+                  No notifications
+                </Typography>
+              ) : (
+                <List disablePadding>
+                  {notifications.map((n) => (
+                    <ListItemButton
+                      key={n.notification_id}
+                      sx={{ bgcolor: n.is_read ? 'transparent' : 'action.hover' }}
+                      onClick={() => { void handleMarkAsRead(n.notification_id) }}
+                    >
+                      <ListItemText
+                        primary={n.title}
+                        secondary={n.content ?? new Date(n.created_at).toLocaleString()}
+                        primaryTypographyProps={{ variant: 'body2', fontWeight: n.is_read ? 400 : 600 }}
+                        secondaryTypographyProps={{ variant: 'caption' }}
+                      />
+                    </ListItemButton>
+                  ))}
+                </List>
+              )}
+            </Box>
+          </Popover>
         </Toolbar>
       </AppBar>
 
