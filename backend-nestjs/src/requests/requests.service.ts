@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateOtRequestDto } from './dto/create-ot-request.dto';
 import { CreateExplanationRequestDto } from './dto/create-explanation-request.dto';
 import { QueryRequestsDto } from './dto/query-requests.dto';
@@ -38,7 +39,10 @@ const PENDING_SELECT = {
 export class RequestsService {
   private readonly logger = new Logger(RequestsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   async createOtRequest(employeeId: number, dto: CreateOtRequestDto) {
     const today = this.todayDate();
@@ -224,6 +228,12 @@ export class RequestsService {
     });
 
     this.logger.log(`[Approve] request_id=${requestId} type=${request.type} by=${actorId}`);
+    this.notificationsService.create(request.employee_id, {
+      title: `${request.type} Request Approved`,
+      content: `Your ${request.type.toLowerCase()} request for ${this.formatDate(request.date)} has been approved.`,
+      type: 'REQUEST_APPROVED',
+      referenceId: request.request_id,
+    });
     return this.formatRequest(updated);
   }
 
@@ -268,6 +278,12 @@ export class RequestsService {
     });
 
     this.logger.log(`[ApproveExplanation] request_id=${request.request_id} attendance recalculated`);
+    this.notificationsService.create(request.employee_id, {
+      title: 'Explanation Request Approved',
+      content: `Your explanation request for ${this.formatDate(request.date)} has been approved. Attendance recalculated.`,
+      type: 'REQUEST_APPROVED',
+      referenceId: request.request_id,
+    });
     return this.formatRequest(result);
   }
 
@@ -302,6 +318,12 @@ export class RequestsService {
     });
 
     this.logger.log(`[Reject] request_id=${requestId} type=${request.type} by=${actorId}`);
+    this.notificationsService.create(request.employee_id, {
+      title: `${request.type} Request Rejected`,
+      content: `Your ${request.type.toLowerCase()} request for ${this.formatDate(request.date)} has been rejected.`,
+      type: 'REQUEST_REJECTED',
+      referenceId: request.request_id,
+    });
     return this.formatRequest(updated);
   }
 

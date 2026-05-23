@@ -13,6 +13,7 @@ import { MqttModule } from './mqtt/mqtt.module';
 import { CheckinModule } from './checkin/checkin.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { RequestsModule } from './requests/requests.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { RequestsModule } from './requests/requests.module';
     CheckinModule,
     AttendanceModule,
     RequestsModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

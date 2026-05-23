@@ -74,6 +74,7 @@ model Employee {
   monthly_limits    MonthlyLimit[]
   requests          Request[]
   checkin_logs      CheckInLog[]
+  notifications     Notification[]
 
   @@map("employees")
 }
@@ -174,4 +175,21 @@ model Mapping {
   @@unique([device_id, employee_id])
   @@index([employee_id])
   @@map("mappings")
+}
+
+model Notification {
+  notification_id  Int      @id @default(autoincrement())
+  employee_id      Int
+  type             String   // 'REQUEST_APPROVED' | 'REQUEST_REJECTED' | 'PAYROLL'
+  title            String
+  content          String?
+  reference_id     Int?     // request_id or payroll record id
+  metadata         String?  @db.Text  // JSON for additional data (file path, etc.)
+  is_read          Boolean  @default(false)
+  created_at       DateTime @default(now())
+
+  employee        Employee @relation(fields: [employee_id], references: [employee_id], onDelete: Cascade)
+
+  @@index([employee_id, is_read])
+  @@map("notifications")
 }
