@@ -117,6 +117,7 @@ export class EmployeesService {
   async findByUsername(username: string) {
     return this.prisma.employee.findUnique({
       where: { email: username },
+      select: { ...SAFE_SELECT, password_hash: true },
     });
   }
 
