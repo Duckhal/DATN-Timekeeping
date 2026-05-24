@@ -53,7 +53,7 @@ export class AttendanceService {
       date: { gte: from, lte: to },
     };
 
-    const [total, rows] = await this.prisma.$transaction([
+    const [total, rows, otRequests] = await this.prisma.$transaction([
       this.prisma.dailyAttendance.count({ where }),
       this.prisma.dailyAttendance.findMany({
         where,
@@ -61,12 +61,27 @@ export class AttendanceService {
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
+      this.prisma.request.findMany({
+        where: {
+          employee_id: employeeId,
+          type: 'OT',
+          status: 'APPROVED',
+          date: { gte: from, lte: to },
+        },
+        select: { date: true },
+      }),
     ]);
 
+    const otDates = new Set(
+      otRequests.map((r) => r.date.toISOString().slice(0, 10)),
+    );
+
     const items: AttendanceItem[] = rows.map((row) => {
+      const dateKey = row.date.toISOString().slice(0, 10);
       const computed = computeAttendance({
         checkin: row.checkin_time,
         checkout: row.checkout_time,
+        otApproved: otDates.has(dateKey),
       });
       return {
         attendance_id: row.attendance_id.toString(),

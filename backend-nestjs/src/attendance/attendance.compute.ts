@@ -100,19 +100,21 @@ export function deriveWorkingWindow(checkinSec: number | null): WorkingWindow | 
 
 /**
  * Compute the standard daily credit using the §3.1 overlap formula.
- * Returns a number in the range [0, 1].
+ * Returns a number in the range [0, 1] normally, or > 1 when OT is approved
+ * and the 18:30 cap is lifted.
  */
 export function computeStandardCredit(
   checkinSec: number,
   checkoutSec: number,
+  otApproved = false,
 ): number {
   if (checkoutSec <= checkinSec) return 0;
-  const tOutStd = Math.min(checkoutSec, T_1830);
+  const tOutStd = otApproved ? checkoutSec : Math.min(checkoutSec, T_1830);
   if (tOutStd <= checkinSec) return 0;
   const lunchOverlap = overlap(checkinSec, tOutStd, T_1200, T_1330);
   const sWork = tOutStd - checkinSec - lunchOverlap;
   if (sWork <= 0) return 0;
-  return Math.min(1, sWork / STANDARD_WORK_SECONDS);
+  return otApproved ? sWork / STANDARD_WORK_SECONDS : Math.min(1, sWork / STANDARD_WORK_SECONDS);
 }
 
 /**
@@ -123,6 +125,7 @@ export function computeStandardCredit(
 export function computeAttendance(input: {
   checkin: Date | null;
   checkout: Date | null;
+  otApproved?: boolean;
 }): AttendanceComputed {
   const checkinSec = toSecondsOfDay(input.checkin);
   const checkoutSec = toSecondsOfDay(input.checkout);
@@ -155,7 +158,7 @@ export function computeAttendance(input: {
     };
   }
 
-  const credit = computeStandardCredit(checkinSec, checkoutSec);
+  const credit = computeStandardCredit(checkinSec, checkoutSec, input.otApproved);
   const workedSeconds = credit * STANDARD_WORK_SECONDS;
   const missingMinutes = Math.max(
     0,
