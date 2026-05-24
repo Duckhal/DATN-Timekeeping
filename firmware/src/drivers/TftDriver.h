@@ -23,6 +23,7 @@ class TftDriver {
   uint8_t rstPin_;
   uint8_t mosiPin_;
   uint8_t sclkPin_;
+  SPIClass hspi_;
   Adafruit_ST7789 tft_;
 };
 }  // namespace tk::drivers

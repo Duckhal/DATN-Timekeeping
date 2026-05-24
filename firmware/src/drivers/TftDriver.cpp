@@ -8,10 +8,11 @@ TftDriver::TftDriver(uint8_t csPin, uint8_t dcPin, uint8_t rstPin,
       rstPin_(rstPin),
       mosiPin_(mosiPin),
       sclkPin_(sclkPin),
-      tft_(csPin, dcPin, rstPin) {}
+      hspi_(HSPI),
+      tft_(&hspi_, csPin, dcPin, rstPin) {}
 
 void TftDriver::begin(uint16_t width, uint16_t height) {
-  SPI.begin(sclkPin_, -1, mosiPin_, csPin_);
+  hspi_.begin(sclkPin_, -1, mosiPin_, csPin_);
   tft_.init(width, height);
   tft_.setRotation(1);
   tft_.fillScreen(ST77XX_BLACK);

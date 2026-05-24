@@ -8,28 +8,14 @@ RfidDriver::RfidDriver(uint8_t sck, uint8_t miso, uint8_t mosi, uint8_t ss, uint
       mosi_(mosi),
       ss_(ss),
       rst_(rst),
-      hspi_(HSPI),
-      ssPin_(ss),
-      spiDriver_(ssPin_, hspi_, SPISettings(4000000, MSBFIRST, SPI_MODE0)),
-      rfid_(spiDriver_) {}
+      rfid_(ss, rst) {}
 
 void RfidDriver::begin() {
-  // Bring up our own HSPI bus so it never collides with the VSPI bus the TFT
-  // is currently driving.
-  hspi_.begin(sck_, miso_, mosi_, ss_);
-
-  // Hard reset the chip via the RST line so it starts from a known state.
-  pinMode(rst_, OUTPUT);
-  digitalWrite(rst_, LOW);
-  delay(10);
-  digitalWrite(rst_, HIGH);
-  delay(50);
-
+  SPI.begin(sck_, miso_, mosi_, ss_);
   rfid_.PCD_Init();
   delay(20);
 
-  // Read VersionReg (0x37) to confirm the chip is talking to us.
-  const byte version = rfid_.PCD_GetVersion();
+  const byte version = rfid_.PCD_ReadRegister(rfid_.VersionReg);
   Serial.printf("[RFID] RC522 firmware=0x%02X\n", version);
   if (version == 0x00 || version == 0xFF) {
     Serial.println("[RFID] RC522 not detected. Check power and wiring.");
@@ -79,9 +65,6 @@ String RfidDriver::formatUidHex() const {
 }
 
 bool RfidDriver::isCardPresent() {
-  // PICC_IsNewCardPresent only returns true once per fresh card placement.
-  // Use it as a coarse "is anything on the antenna right now" signal for
-  // the wait-release state.
   return rfid_.PICC_IsNewCardPresent();
 }
 
