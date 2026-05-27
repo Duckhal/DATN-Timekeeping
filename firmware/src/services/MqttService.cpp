@@ -15,7 +15,9 @@ MqttService::MqttService(drivers::MqttClientDriver& driver)
       syncTemplateData_(""),
       syncSourceMac_(""),
       deleteFingerPending_(false),
-      deleteFingerLocalId_(0) {}
+      deleteFingerLocalId_(0),
+      statusUpdatePending_(false),
+      pendingStatus_(models::RemoteDeviceStatus::UNKNOWN) {}
 
 void MqttService::begin() {
   instance_ = this;
@@ -97,6 +99,16 @@ bool MqttService::consumeDeleteFingerCommand(uint16_t& outLocalId) {
   return true;
 }
 
+bool MqttService::consumeStatusUpdate(models::RemoteDeviceStatus& outStatus) {
+  if (!statusUpdatePending_) {
+    return false;
+  }
+
+  outStatus = pendingStatus_;
+  statusUpdatePending_ = false;
+  return true;
+}
+
 void MqttService::onRawMessage(char* topic, uint8_t* payload, unsigned int length) {
   if (!instance_) {
     return;
@@ -154,6 +166,16 @@ void MqttService::handleMessage(char* topic, uint8_t* payload, unsigned int leng
     Serial.printf("[MQTT] Received SYNC_FINGERPRINT command. employee_id=%lu source_mac=%s\n",
                   (unsigned long)employeeId, sourceMac.c_str());
   }
+
+  if (command == "STATUS_UPDATE") {
+    const String status = doc["status"] | "";
+    models::RemoteDeviceStatus parsed = parseStatus(status);
+    if (parsed != models::RemoteDeviceStatus::UNKNOWN) {
+      pendingStatus_ = parsed;
+      statusUpdatePending_ = true;
+      Serial.printf("[MQTT] Received STATUS_UPDATE. status=%s\n", status.c_str());
+    }
+  }
 }
 
 String MqttService::buildTopicFromMac(const String& macAddress) const {
@@ -164,5 +186,12 @@ String MqttService::buildClientIdFromMac(const String& macAddress) const {
   String clientId = String("timekeeping-") + macAddress;
   clientId.replace(":", "");
   return clientId;
+}
+
+models::RemoteDeviceStatus MqttService::parseStatus(const String& s) {
+  if (s == "ACTIVE") return models::RemoteDeviceStatus::ACTIVE;
+  if (s == "INACTIVE") return models::RemoteDeviceStatus::INACTIVE;
+  if (s == "MAINTENANCE") return models::RemoteDeviceStatus::MAINTENANCE;
+  return models::RemoteDeviceStatus::UNKNOWN;
 }
 }  // namespace tk::services

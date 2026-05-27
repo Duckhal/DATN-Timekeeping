@@ -119,6 +119,13 @@ void App::tick() {
                                config::timing::kMqttReconnectIntervalMs);
   mqttService_.loop();
 
+  {
+    models::RemoteDeviceStatus mqttStatus;
+    if (mqttService_.consumeStatusUpdate(mqttStatus)) {
+      registrationService_.applyRemoteStatus(mqttStatus);
+    }
+  }
+
   if (!enrollmentService_.sensorReady()) {
     enrollmentService_.initSensor(false, config::timing::kFingerprintRetryIntervalMs);
   }

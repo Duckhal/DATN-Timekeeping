@@ -3,6 +3,7 @@
 #include <ArduinoJson.h>
 
 #include "drivers/MqttClientDriver.h"
+#include "models/RegisterHeartbeatResult.h"
 
 namespace tk::services {
 class MqttService {
@@ -19,10 +20,12 @@ class MqttService {
                           String& outTemplateData,
                           String& outSourceMac);
   bool consumeDeleteFingerCommand(uint16_t& outLocalId);
+  bool consumeStatusUpdate(models::RemoteDeviceStatus& outStatus);
 
  private:
   static void onRawMessage(char* topic, uint8_t* payload, unsigned int length);
   void handleMessage(char* topic, uint8_t* payload, unsigned int length);
+  static models::RemoteDeviceStatus parseStatus(const String& s);
 
   String buildTopicFromMac(const String& macAddress) const;
   String buildClientIdFromMac(const String& macAddress) const;
@@ -39,6 +42,9 @@ class MqttService {
 
   bool deleteFingerPending_;
   uint16_t deleteFingerLocalId_;
+
+  bool statusUpdatePending_;
+  models::RemoteDeviceStatus pendingStatus_;
 
   static MqttService* instance_;
 };

@@ -26,6 +26,7 @@ class DeviceRegistrationService {
 
   State state() const;
   models::RemoteDeviceStatus remoteStatus() const;
+  void applyRemoteStatus(models::RemoteDeviceStatus status);
 
   void showCurrentHomeScreen() const;
 

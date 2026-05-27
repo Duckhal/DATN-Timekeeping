@@ -56,6 +56,10 @@ models::RemoteDeviceStatus DeviceRegistrationService::remoteStatus() const {
   return remoteStatus_;
 }
 
+void DeviceRegistrationService::applyRemoteStatus(models::RemoteDeviceStatus status) {
+  showRemoteModeIfChanged(status);
+}
+
 void DeviceRegistrationService::showCurrentHomeScreen() const {
   if (remoteStatus_ == models::RemoteDeviceStatus::ACTIVE) {
     display_.showWelcome();

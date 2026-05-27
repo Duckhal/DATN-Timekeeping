@@ -1,14 +1,21 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { MqttService } from '../mqtt/mqtt.service';
 import { UpdateDeviceDto } from './dto/update-device.dto';
 
 @Injectable()
 export class DevicesService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(DevicesService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly mqttService: MqttService,
+  ) {}
 
   private toHeartbeatResponse(device: {
     device_id: number;
@@ -99,19 +106,25 @@ export class DevicesService {
       throw new BadRequestException('At least one field (name or status) is required.');
     }
 
-    await this.findById(deviceId);
+    const device = await this.findById(deviceId);
 
-    return this.prisma.device.update({
+    const updated = await this.prisma.device.update({
       where: { device_id: deviceId },
       data: {
         name: dto.name,
         status: dto.status,
       },
     });
+
+    if (dto.status) {
+      this.publishStatusUpdate(device.mac_addr, dto.status);
+    }
+
+    return updated;
   }
 
   async remove(deviceId: number) {
-    await this.findById(deviceId);
+    const device = await this.findById(deviceId);
 
     const checkInLogCount = await this.prisma.checkInLog.count({
       where: { device_id: deviceId },
@@ -122,6 +135,8 @@ export class DevicesService {
         where: { device_id: deviceId },
         data: { status: 'INACTIVE' },
       });
+
+      this.publishStatusUpdate(device.mac_addr, 'INACTIVE');
 
       return {
         mode: 'SOFT_DELETE',
@@ -139,5 +154,16 @@ export class DevicesService {
       message: 'Device deleted permanently.',
       device: hardDeleted,
     };
+  }
+
+  private publishStatusUpdate(macAddr: string, status: string) {
+    const topic = `timekeeping/device/${macAddr}/command`;
+    this.mqttService
+      .publish(topic, { command: 'STATUS_UPDATE', status })
+      .catch((err) => {
+        this.logger.warn(
+          `MQTT publish failed for device ${macAddr}: ${err.message}`,
+        );
+      });
   }
 }
