@@ -2,6 +2,7 @@
 
 #include <Arduino.h>
 
+#include "drivers/BuzzerDriver.h"
 #include "drivers/FingerprintDriver.h"
 #include "models/DeviceConfig.h"
 #include "services/DisplayService.h"
@@ -24,7 +25,8 @@ class CheckinService {
  public:
   CheckinService(drivers::FingerprintDriver& fingerprint,
                  DisplayService& display,
-                 NetworkService& network);
+                 NetworkService& network,
+                 drivers::BuzzerDriver& buzzer);
 
   /** Call each App::tick() when normal operation is permitted. */
   void tick(const models::DeviceConfig& config,
@@ -46,6 +48,7 @@ class CheckinService {
   drivers::FingerprintDriver& fingerprint_;
   DisplayService& display_;
   NetworkService& network_;
+  drivers::BuzzerDriver& buzzer_;
 
   State state_;
   uint32_t resultShownAtMs_;

@@ -12,6 +12,68 @@ void loop() {
   app.tick();
 }
 
+// #include <Arduino.h>
+
+// // Định nghĩa chân điều khiển Buzzer theo sơ đồ cấu hình của bạn
+// constexpr uint8_t kBuzzerPin = 12;
+
+// /**
+//  * ÂM THANH 1: Chấm công THÀNH CÔNG (Success)
+//  * Quy chuẩn: Kêu 2 tiếng "Tít! Tít!" ngắn, dứt khoát.
+//  */
+// void playSuccessSound() {
+//   Serial.println("[BUZZER] Phát âm thanh: CHẤM CÔNG THÀNH CÔNG (Tít! Tít!)");
+  
+//   digitalWrite(kBuzzerPin, HIGH); // Bật còi (Mức cao kích dẫn)
+//   delay(80);                      // Kêu ngắn 80ms
+//   digitalWrite(kBuzzerPin, LOW);  // Tắt còi
+//   delay(80);                      // Khoảng nghỉ giữa 2 tiếng 80ms
+  
+//   digitalWrite(kBuzzerPin, HIGH); // Bật còi lần 2
+//   delay(80);                      // Kêu ngắn 80ms
+//   digitalWrite(kBuzzerPin, LOW);  // Tắt hẳn
+// }
+
+// /**
+//  * ÂM THANH 2: Chấm công THẤT BẠI / CẢNH BÁO (Error)
+//  * Quy chuẩn: Kêu 1 tiếng "TÍIIIIIT" kéo dài nặng nề.
+//  */
+// void playErrorSound() {
+//   Serial.println("[BUZZER] Phát âm thanh: CHẤM CÔNG THẤT BẠI (TÍIIIIIT)");
+  
+//   digitalWrite(kBuzzerPin, HIGH); // Bật còi
+//   delay(600);                     // Kéo dài liên tục 600ms để cảnh báo
+//   digitalWrite(kBuzzerPin, LOW);  // Tắt hẳn
+// }
+
+// void setup() {
+//   // Khởi tạo Serial Monitor để theo dõi trạng thái log
+//   Serial.begin(115200);
+//   delay(1000);
+//   Serial.println("\n--- BẮT ĐẦU TEST ACTIVE BUZZER (HIGH LEVEL TRIGGER) ---");
+
+//   // Cấu hình chân GPIO 12 là OUTPUT
+//   pinMode(kBuzzerPin, OUTPUT);
+  
+//   // Đảm bảo còi tắt ngay khi vừa khởi động mạch
+//   digitalWrite(kBuzzerPin, LOW); 
+//   Serial.println("[SETUP] Đã cấu hình GPIO 12 làm chân kích mức cao.");
+// }
+
+// void loop() {
+//   // 1. Test âm thanh Thành công
+//   playSuccessSound();
+  
+//   // Chờ 3 giây
+//   delay(3000);
+  
+//   // 2. Test âm thanh Thất bại
+//   playErrorSound();
+  
+//   // Chờ 3 giây trước khi lặp lại vòng lặp
+//   delay(3000);
+// }
+
 // --- RFID raw UID test (temporary) ---
 // Uncomment this block and comment out the App code above when you want to
 // test RC522 wiring/pins. It logs raw UID bytes to Serial.

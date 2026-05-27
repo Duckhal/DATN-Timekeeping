@@ -13,10 +13,11 @@ App::App()
       config::gpio::kRfidMosi,
       config::gpio::kRfidCs,
       config::gpio::kRfidRst),
+      buzzerDriver_(config::gpio::kBuzzerPin),
       enrollmentService_(fingerprintDriver_, displayService_, networkService_),
       syncMappingService_(fingerprintDriver_, networkService_),
-      checkinService_(fingerprintDriver_, displayService_, networkService_),
-  rfidService_(rfidDriver_, displayService_, networkService_),
+      checkinService_(fingerprintDriver_, displayService_, networkService_, buzzerDriver_),
+  rfidService_(rfidDriver_, displayService_, networkService_, buzzerDriver_),
       registrationService_(networkService_, displayService_),
       bootButtonDriver_(config::gpio::kBootButtonPin,
                         config::timing::kBootDebounceMs,
@@ -34,6 +35,7 @@ void App::begin() {
 
   bootButtonDriver_.begin();
   displayService_.begin();
+  buzzerDriver_.begin();
   mqttService_.begin();
   rfidService_.begin();
 
@@ -75,6 +77,7 @@ void App::begin() {
 }
 
 void App::tick() {
+  buzzerDriver_.update();
   const drivers::BootButtonDriver::Event buttonEvent = bootButtonDriver_.update();
 
   if (buttonEvent.longPress) {

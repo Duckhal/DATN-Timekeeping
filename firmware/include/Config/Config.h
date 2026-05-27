@@ -19,6 +19,8 @@ constexpr uint8_t kRfidRst = 21;
 constexpr uint8_t kRfidMiso = 27;
 constexpr uint8_t kRfidMosi = 26;
 constexpr uint8_t kRfidSck = 25;
+
+constexpr uint8_t kBuzzerPin = 12;
 }  // namespace gpio
 
 namespace timing {
@@ -37,7 +39,7 @@ constexpr uint8_t kSyncMappingMaxAttempts = 3;
 namespace network {
 constexpr const char* kDefaultSsid = "GalaxyA53";
 constexpr const char* kDefaultPassword = "oysl4029";
-constexpr const char* kDefaultServerIp = "192.168.255.16";
+constexpr const char* kDefaultServerIp = "192.168.32.16";
 constexpr const char* kDefaultDeviceName = "ESP32-Timekeeping-Device";
 constexpr uint16_t kDefaultServerPort = 3000;
 constexpr uint16_t kMqttPort = 1883;
@@ -51,6 +53,13 @@ constexpr const char* kFactoryResetEndpoint = "/devices/factory-reset";
 constexpr const char* kSyncFingerprintEndpoint = "/devices/sync-fingerprint";
 constexpr const char* kDeviceApiKey = "THIS_IS_A_STRONG_DEVICE_API_KEY_REPLACE_BEFORE_PRODUCTION";
 }  // namespace network
+
+namespace buzzer {
+constexpr uint16_t kAckDurationMs = 25;
+constexpr uint16_t kSuccessBeepMs = 80;
+constexpr uint16_t kSuccessPauseMs = 80;
+constexpr uint16_t kErrorDurationMs = 400;
+}  // namespace buzzer
 
 namespace fingerprint {
 constexpr uint16_t kMaxTemplateId = 1023;

@@ -9,10 +9,12 @@ constexpr uint32_t kResultHoldMs = 1500;
 
 RfidService::RfidService(drivers::RfidDriver& rfid,
                          DisplayService& display,
-                         NetworkService& network)
+                         NetworkService& network,
+                         drivers::BuzzerDriver& buzzer)
     : rfid_(rfid),
       display_(display),
       network_(network),
+      buzzer_(buzzer),
       state_(State::IDLE),
       resultShownAtMs_(0) {}
 
@@ -50,6 +52,8 @@ void RfidService::tick(const models::DeviceConfig& config,
     return;
   }
 
+  buzzer_.playAck();
+
   const String clientTxId = generateClientTxId(uid);
   String body;
   const bool ok = network_.sendRfidCheckin(config, apiKey, uid, clientTxId, body);
@@ -57,6 +61,7 @@ void RfidService::tick(const models::DeviceConfig& config,
   if (!ok && body.length() == 0) {
     Serial.println("[RFID] Network failure while posting checkin.");
     display_.showCheckinDenied();
+    buzzer_.playError();
     enterResultState();
     return;
   }
@@ -75,6 +80,7 @@ void RfidService::parseAndApply(const String& body) {
   if (err) {
     Serial.printf("[RFID] Invalid response JSON: %s\n", err.c_str());
     display_.showCheckinDenied();
+    buzzer_.playError();
     return;
   }
 
@@ -85,6 +91,7 @@ void RfidService::parseAndApply(const String& body) {
     const char* kind = doc["kind"] | "";
     Serial.printf("[RFID] OK employee=%s kind=%s\n", name.c_str(), kind);
     display_.showCheckinSuccess(name);
+    buzzer_.playSuccess();
     return;
   }
 
@@ -92,17 +99,20 @@ void RfidService::parseAndApply(const String& body) {
     const String name = doc["employee_name"] | "";
     Serial.printf("[RFID] Duplicate scan employee=%s\n", name.c_str());
     display_.showAlreadyCheckedIn(name);
+    buzzer_.playSuccess();
     return;
   }
 
   if (status == "invalid_credential") {
     Serial.println("[RFID] Card not recognized.");
     display_.showCardNotRecognized();
+    buzzer_.playError();
     return;
   }
 
   Serial.printf("[RFID] Unknown response status=%s\n", status.c_str());
   display_.showCheckinDenied();
+  buzzer_.playError();
 }
 
 void RfidService::enterResultState() {

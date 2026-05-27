@@ -2,6 +2,7 @@
 
 #include "Config/Config.h"
 #include "drivers/BootButtonDriver.h"
+#include "drivers/BuzzerDriver.h"
 #include "drivers/FingerprintDriver.h"
 #include "drivers/MqttClientDriver.h"
 #include "drivers/PortalDriver.h"
@@ -44,6 +45,7 @@ class App {
   HardwareSerial fingerSerial_;
   drivers::FingerprintDriver fingerprintDriver_;
   drivers::RfidDriver rfidDriver_;
+  drivers::BuzzerDriver buzzerDriver_;
   services::EnrollmentService enrollmentService_;
   services::SyncMappingService syncMappingService_;
   services::CheckinService checkinService_;

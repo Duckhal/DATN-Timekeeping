@@ -12,10 +12,12 @@ constexpr uint32_t kResultHoldMs = 2000;
 
 CheckinService::CheckinService(drivers::FingerprintDriver& fingerprint,
                                DisplayService& display,
-                               NetworkService& network)
+                               NetworkService& network,
+                               drivers::BuzzerDriver& buzzer)
     : fingerprint_(fingerprint),
       display_(display),
       network_(network),
+      buzzer_(buzzer),
       state_(State::IDLE),
       resultShownAtMs_(0),
       lastMatchedId_(0) {}
@@ -56,26 +58,24 @@ void CheckinService::tick(const models::DeviceConfig& config,
   }
 
   if (match == drivers::FingerprintDriver::MatchResult::NO_MATCH) {
-    // Finger was placed but doesn't match any stored template — unknown finger
-    // or poor capture. Surface "Please try again" so the user has feedback.
     Serial.println("[Checkin] Finger placed but no match found.");
     display_.showCheckinDenied();
+    buzzer_.playError();
     enterResultState();
     return;
   }
 
   Serial.printf("[Checkin] Match slot=%u confidence=%u\n", matchedId, confidence);
+  buzzer_.playAck();
 
   const String clientTxId = generateClientTxId(matchedId);
   String body;
   const bool ok = network_.sendCheckin(config, apiKey, matchedId, clientTxId, body);
 
   if (!ok && body.length() == 0) {
-    // Network-level failure (wifi down, timeout, non-HTTP error). User should
-    // see feedback + be debounced so the next tick doesn't instantly re-poll
-    // the same finger.
     Serial.println("[Checkin] Network failure while posting checkin.");
     display_.showCheckinDenied();
+    buzzer_.playError();
     enterResultState();
     return;
   }
@@ -92,6 +92,7 @@ void CheckinService::parseAndApply(uint16_t matchedId, const String& body) {
   if (err) {
     Serial.printf("[Checkin] Invalid response JSON: %s\n", err.c_str());
     display_.showCheckinDenied();
+    buzzer_.playError();
     return;
   }
 
@@ -102,6 +103,7 @@ void CheckinService::parseAndApply(uint16_t matchedId, const String& body) {
     const char* kind = doc["kind"] | "";
     Serial.printf("[Checkin] OK employee=%s kind=%s\n", name.c_str(), kind);
     display_.showCheckinSuccess(name);
+    buzzer_.playSuccess();
     return;
   }
 
@@ -116,17 +118,20 @@ void CheckinService::parseAndApply(uint16_t matchedId, const String& body) {
       }
     }
     display_.showCheckinDenied();
+    buzzer_.playError();
     return;
   }
 
   if (status == "duplicate") {
     const String name = doc["employee_name"] | "";
     display_.showAlreadyCheckedIn(name);
+    buzzer_.playSuccess();
     return;
   }
 
   Serial.printf("[Checkin] Unknown response status=%s\n", status.c_str());
   display_.showCheckinDenied();
+  buzzer_.playError();
 }
 
 bool CheckinService::isBusy() const {

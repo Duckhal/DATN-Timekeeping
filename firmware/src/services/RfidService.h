@@ -2,6 +2,7 @@
 
 #include <Arduino.h>
 
+#include "drivers/BuzzerDriver.h"
 #include "drivers/RfidDriver.h"
 #include "models/DeviceConfig.h"
 #include "services/DisplayService.h"
@@ -12,7 +13,8 @@ class RfidService {
  public:
   RfidService(drivers::RfidDriver& rfid,
               DisplayService& display,
-              NetworkService& network);
+              NetworkService& network,
+              drivers::BuzzerDriver& buzzer);
 
   void begin();
   void tick(const models::DeviceConfig& config,
@@ -34,6 +36,7 @@ class RfidService {
   drivers::RfidDriver& rfid_;
   DisplayService& display_;
   NetworkService& network_;
+  drivers::BuzzerDriver& buzzer_;
 
   State state_;
   uint32_t resultShownAtMs_;
