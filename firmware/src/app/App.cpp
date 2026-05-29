@@ -16,6 +16,7 @@ App::App()
       buzzerDriver_(config::gpio::kBuzzerPin),
       enrollmentService_(fingerprintDriver_, displayService_, networkService_),
       syncMappingService_(fingerprintDriver_, networkService_),
+      bulkSyncService_(fingerprintDriver_, networkService_, displayService_),
       checkinService_(fingerprintDriver_, displayService_, networkService_, buzzerDriver_),
   rfidService_(rfidDriver_, displayService_, networkService_, buzzerDriver_),
       registrationService_(networkService_, displayService_),
@@ -193,6 +194,13 @@ void App::tick() {
                            config::timing::kSyncMappingRetryIntervalMs,
                            config::timing::kSyncMappingMaxAttempts);
 
+  if (mqttService_.consumeBulkSyncCommand()) {
+    if (!bulkSyncService_.isSyncing()) {
+      bulkSyncService_.startSync();
+    }
+  }
+  bulkSyncService_.tick(currentConfig_, config::network::kDeviceApiKey);
+
   uint16_t deleteLocalId = 0;
   if (mqttService_.consumeDeleteFingerCommand(deleteLocalId)) {
     if (enrollmentService_.isEnrolling()) {
@@ -211,6 +219,7 @@ void App::tick() {
       registrationService_.state() == services::DeviceRegistrationService::State::SUCCESS &&
       registrationService_.remoteStatus() == models::RemoteDeviceStatus::ACTIVE &&
       !enrollmentService_.isEnrolling() &&
+      !bulkSyncService_.isSyncing() &&
       enrollmentService_.sensorReady();
 
   // Log gate state transitions once to avoid spamming the monitor.

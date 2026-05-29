@@ -17,6 +17,7 @@
 #include "services/NetworkService.h"
 #include "services/RfidService.h"
 #include "services/SyncMappingService.h"
+#include "services/BulkSyncService.h"
 
 namespace tk::app {
 class App {
@@ -48,6 +49,7 @@ class App {
   drivers::BuzzerDriver buzzerDriver_;
   services::EnrollmentService enrollmentService_;
   services::SyncMappingService syncMappingService_;
+  services::BulkSyncService bulkSyncService_;
   services::CheckinService checkinService_;
   services::RfidService rfidService_;
 

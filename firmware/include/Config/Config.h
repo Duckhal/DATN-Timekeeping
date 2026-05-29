@@ -34,12 +34,15 @@ constexpr uint32_t kEnrollTimeoutMs = 30000;
 constexpr uint32_t kFingerprintRetryIntervalMs = 5000;
 constexpr uint32_t kSyncMappingRetryIntervalMs = 5000;
 constexpr uint8_t kSyncMappingMaxAttempts = 3;
+constexpr uint32_t kBulkSyncPageDelayMs = 500;
+constexpr uint32_t kBulkSyncHttpTimeoutMs = 10000;
+constexpr uint8_t kBulkSyncMaxRetries = 3;
 }  // namespace timing
 
 namespace network {
 constexpr const char* kDefaultSsid = "GalaxyA53";
 constexpr const char* kDefaultPassword = "oysl4029";
-constexpr const char* kDefaultServerIp = "192.168.32.16";
+constexpr const char* kDefaultServerIp = "192.168.121.16";
 constexpr const char* kDefaultDeviceName = "ESP32-Timekeeping-Device";
 constexpr uint16_t kDefaultServerPort = 3000;
 constexpr uint16_t kMqttPort = 1883;
@@ -51,6 +54,8 @@ constexpr const char* kSyncMappingCallbackEndpoint = "/devices/sync-mapping-call
 constexpr const char* kCheckinEndpoint = "/devices/checkin";
 constexpr const char* kFactoryResetEndpoint = "/devices/factory-reset";
 constexpr const char* kSyncFingerprintEndpoint = "/devices/sync-fingerprint";
+constexpr const char* kBulkSyncTemplatesEndpoint = "/devices/bulk-sync-templates";
+constexpr const char* kBulkSyncAckEndpoint = "/devices/bulk-sync-ack";
 constexpr const char* kDeviceApiKey = "THIS_IS_A_STRONG_DEVICE_API_KEY_REPLACE_BEFORE_PRODUCTION";
 }  // namespace network
 

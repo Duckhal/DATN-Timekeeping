@@ -17,7 +17,8 @@ MqttService::MqttService(drivers::MqttClientDriver& driver)
       deleteFingerPending_(false),
       deleteFingerLocalId_(0),
       statusUpdatePending_(false),
-      pendingStatus_(models::RemoteDeviceStatus::UNKNOWN) {}
+      pendingStatus_(models::RemoteDeviceStatus::UNKNOWN),
+      bulkSyncPending_(false) {}
 
 void MqttService::begin() {
   instance_ = this;
@@ -109,6 +110,15 @@ bool MqttService::consumeStatusUpdate(models::RemoteDeviceStatus& outStatus) {
   return true;
 }
 
+bool MqttService::consumeBulkSyncCommand() {
+  if (!bulkSyncPending_) {
+    return false;
+  }
+
+  bulkSyncPending_ = false;
+  return true;
+}
+
 void MqttService::onRawMessage(char* topic, uint8_t* payload, unsigned int length) {
   if (!instance_) {
     return;
@@ -175,6 +185,11 @@ void MqttService::handleMessage(char* topic, uint8_t* payload, unsigned int leng
       statusUpdatePending_ = true;
       Serial.printf("[MQTT] Received STATUS_UPDATE. status=%s\n", status.c_str());
     }
+  }
+
+  if (command == "START_BULK_SYNC") {
+    bulkSyncPending_ = true;
+    Serial.println("[MQTT] Received START_BULK_SYNC command.");
   }
 }
 

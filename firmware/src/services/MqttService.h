@@ -21,6 +21,7 @@ class MqttService {
                           String& outSourceMac);
   bool consumeDeleteFingerCommand(uint16_t& outLocalId);
   bool consumeStatusUpdate(models::RemoteDeviceStatus& outStatus);
+  bool consumeBulkSyncCommand();
 
  private:
   static void onRawMessage(char* topic, uint8_t* payload, unsigned int length);
@@ -45,6 +46,8 @@ class MqttService {
 
   bool statusUpdatePending_;
   models::RemoteDeviceStatus pendingStatus_;
+
+  bool bulkSyncPending_;
 
   static MqttService* instance_;
 };

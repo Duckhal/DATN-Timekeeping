@@ -166,4 +166,23 @@ export class DevicesService {
         );
       });
   }
+
+  async triggerBulkSync(deviceId: number) {
+    const device = await this.findById(deviceId);
+
+    if (device.status !== 'ACTIVE') {
+      throw new BadRequestException(
+        'Bulk sync can only be triggered for ACTIVE devices.',
+      );
+    }
+
+    const topic = `timekeeping/device/${device.mac_addr}/command`;
+    await this.mqttService.publish(topic, { command: 'START_BULK_SYNC' });
+
+    this.logger.log(
+      `[BulkSync] START_BULK_SYNC published to device ${deviceId} (${device.mac_addr})`,
+    );
+
+    return { message: 'Bulk sync command sent' };
+  }
 }

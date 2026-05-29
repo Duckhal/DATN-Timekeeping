@@ -60,6 +60,14 @@ class NetworkService {
                        const String& clientTxId,
                        String& outBody);
 
+  bool fetchBulkSyncPage(const models::DeviceConfig& config,
+                         const String& apiKey,
+                         String& outBody);
+
+  bool sendBulkSyncAck(const models::DeviceConfig& config,
+                       const String& apiKey,
+                       const String& mappingsJson);
+
  private:
   String buildBaseUrl(const models::DeviceConfig& config) const;
   String buildAuthorization(const String& apiKey) const;

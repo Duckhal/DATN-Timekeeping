@@ -129,4 +129,22 @@ void DisplayService::showCardNotRecognized() {
   display_.drawCenteredText("Card not recognized", 96, ST77XX_RED, 2);
   display_.drawCenteredText("Please try again", 130, ST77XX_WHITE, 2);
 }
+
+void DisplayService::showBulkSyncProgress(uint16_t count) {
+  display_.clear(ST77XX_BLACK);
+  display_.drawCenteredText("Syncing templates...", 80, ST77XX_YELLOW, 2);
+  display_.drawCenteredText(String(count) + " synced", 120, ST77XX_WHITE, 2);
+}
+
+void DisplayService::showBulkSyncComplete(uint16_t count) {
+  display_.clear(ST77XX_BLACK);
+  display_.drawCenteredText("Sync complete!", 80, ST77XX_GREEN, 2);
+  display_.drawCenteredText(String(count) + " templates", 120, ST77XX_WHITE, 2);
+}
+
+void DisplayService::showBulkSyncFailed() {
+  display_.clear(ST77XX_BLACK);
+  display_.drawCenteredText("Sync failed", 90, ST77XX_RED, 2);
+  display_.drawCenteredText("Please retry", 120, ST77XX_WHITE, 2);
+}
 }  // namespace tk::services

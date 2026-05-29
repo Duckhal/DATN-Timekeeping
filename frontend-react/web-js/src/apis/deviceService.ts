@@ -15,3 +15,8 @@ export async function removeDevice(deviceId: number): Promise<RemoveDeviceRespon
   const response = await apiClient.delete<RemoveDeviceResponse>(`/devices/${deviceId}`)
   return response.data
 }
+
+export async function bulkSyncDevice(deviceId: number): Promise<{ message: string }> {
+  const response = await apiClient.post<{ message: string }>(`/devices/${deviceId}/bulk-sync`)
+  return response.data
+}

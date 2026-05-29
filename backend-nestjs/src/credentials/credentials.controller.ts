@@ -1,11 +1,13 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Param,
   ParseIntPipe,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { Public } from '../auth/decorators/public.decorator';
@@ -15,6 +17,8 @@ import { CredentialsService } from './credentials.service';
 import { RegisterDeviceDto } from './dto/register-device.dto';
 import { FingerprintCallbackDto } from './dto/fingerprint-callback.dto';
 import { SyncMappingCallbackDto } from './dto/sync-mapping-callback.dto';
+import { BulkSyncQueryDto } from './dto/bulk-sync-query.dto';
+import { BulkSyncAckDto } from './dto/bulk-sync-ack.dto';
 
 @Controller('devices')
 export class CredentialsController {
@@ -54,5 +58,23 @@ export class CredentialsController {
       dto.employee_id,
       dto.fingerprint_id,
     );
+  }
+
+  @Public()
+  @UseGuards(ApiKeyGuard)
+  @Get('bulk-sync-templates')
+  getBulkSyncTemplates(@Query() query: BulkSyncQueryDto) {
+    return this.credentialsService.getBulkSyncPage(
+      query.mac_addr,
+      query.page_size ?? 5,
+    );
+  }
+
+  @Public()
+  @UseGuards(ApiKeyGuard)
+  @HttpCode(HttpStatus.OK)
+  @Post('bulk-sync-ack')
+  bulkSyncAck(@Body() dto: BulkSyncAckDto) {
+    return this.credentialsService.ackBulkSync(dto.mac_addr, dto.mappings);
   }
 }

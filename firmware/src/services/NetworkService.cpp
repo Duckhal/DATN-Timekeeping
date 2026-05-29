@@ -284,4 +284,56 @@ models::RemoteDeviceStatus NetworkService::parseRemoteStatus(const String& statu
 
   return models::RemoteDeviceStatus::UNKNOWN;
 }
+
+bool NetworkService::fetchBulkSyncPage(const models::DeviceConfig& config,
+                                       const String& apiKey,
+                                       String& outBody) {
+  outBody = "";
+
+  if (wifiStatus() != WL_CONNECTED) {
+    Serial.println("[HTTP] Skip bulk-sync fetch because WiFi is disconnected.");
+    lastHttpStatusCode_ = -1;
+    return false;
+  }
+
+  const String url = buildBaseUrl(config) +
+                     config::network::kBulkSyncTemplatesEndpoint +
+                     "?mac_addr=" + macAddress();
+
+  Serial.printf("[BulkSync] GET %s\n", url.c_str());
+
+  const models::HttpResponse response =
+      http_.getJson(url, buildAuthorization(apiKey),
+                    config::timing::kBulkSyncHttpTimeoutMs);
+
+  lastHttpStatusCode_ = response.statusCode;
+  outBody = response.body;
+  Serial.printf("[HTTP] GET -> %d (body %u bytes)\n",
+                response.statusCode, response.body.length());
+  return response.ok;
+}
+
+bool NetworkService::sendBulkSyncAck(const models::DeviceConfig& config,
+                                     const String& apiKey,
+                                     const String& mappingsJson) {
+  if (wifiStatus() != WL_CONNECTED) {
+    Serial.println("[HTTP] Skip bulk-sync ACK because WiFi is disconnected.");
+    lastHttpStatusCode_ = -1;
+    return false;
+  }
+
+  const String payload = String("{\"mac_addr\":\"") + macAddress() +
+                         "\",\"mappings\":" + mappingsJson + "}";
+  const String url = buildBaseUrl(config) + config::network::kBulkSyncAckEndpoint;
+
+  Serial.printf("[BulkSync] POST ACK %s\n", url.c_str());
+
+  const models::HttpResponse response =
+      http_.postJson(url, payload, buildAuthorization(apiKey),
+                     config::timing::kBulkSyncHttpTimeoutMs);
+
+  lastHttpStatusCode_ = response.statusCode;
+  Serial.printf("[HTTP] POST -> %d\n", response.statusCode);
+  return response.ok;
+}
 }  // namespace tk::services

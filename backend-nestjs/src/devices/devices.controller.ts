@@ -47,4 +47,10 @@ export class DevicesController {
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.devicesService.remove(id);
   }
+
+  @Post(':id/bulk-sync')
+  @Roles('HR')
+  triggerBulkSync(@Param('id', ParseIntPipe) id: number) {
+    return this.devicesService.triggerBulkSync(id);
+  }
 }

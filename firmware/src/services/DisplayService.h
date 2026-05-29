@@ -30,6 +30,9 @@ class DisplayService {
   void showCheckinDenied();
   void showAlreadyCheckedIn(const String& employeeName);
   void showCardNotRecognized();
+  void showBulkSyncProgress(uint16_t count);
+  void showBulkSyncComplete(uint16_t count);
+  void showBulkSyncFailed();
 
  private:
    drivers::TftDriver display_;

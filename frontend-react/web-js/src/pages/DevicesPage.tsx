@@ -23,7 +23,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { getDevices, removeDevice, updateDevice } from '../apis/deviceService'
+import { getDevices, removeDevice, updateDevice, bulkSyncDevice } from '../apis/deviceService'
 import type { Device, DeviceStatus } from '../types/device'
 
 type SnackbarState = {
@@ -147,6 +147,16 @@ export function DevicesPage() {
             >
               Edit
             </Button>
+            {device.status === 'ACTIVE' && (
+              <Button
+                size="small"
+                variant="outlined"
+                color="info"
+                onClick={() => handleBulkSync(device)}
+              >
+                Sync
+              </Button>
+            )}
             <Button
               size="small"
               color="error"
@@ -233,6 +243,23 @@ export function DevicesPage() {
       })
     } finally {
       setIsDeleting(false)
+    }
+  }
+
+  const handleBulkSync = async (device: Device) => {
+    try {
+      await bulkSyncDevice(device.device_id)
+      setSnackbar({
+        open: true,
+        severity: 'success',
+        message: `Sync command sent to ${device.name ?? device.mac_addr}.`,
+      })
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        severity: 'error',
+        message: getApiErrorMessage(error, 'Unable to trigger sync.'),
+      })
     }
   }
 

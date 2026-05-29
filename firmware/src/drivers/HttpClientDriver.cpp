@@ -29,4 +29,29 @@ models::HttpResponse HttpClientDriver::postJson(const String& url,
       body,
   };
 }
+
+models::HttpResponse HttpClientDriver::getJson(const String& url,
+                                               const String& bearerToken,
+                                               uint32_t timeoutMs) const {
+  HTTPClient http;
+
+  if (timeoutMs > 0) {
+    http.setTimeout(timeoutMs);
+  }
+
+  http.begin(url);
+  if (bearerToken.length() > 0) {
+    http.addHeader("Authorization", bearerToken);
+  }
+
+  const int statusCode = http.GET();
+  const String body = http.getString();
+  http.end();
+
+  return {
+      statusCode >= 200 && statusCode < 300,
+      statusCode,
+      body,
+  };
+}
 }  // namespace tk::drivers

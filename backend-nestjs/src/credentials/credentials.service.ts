@@ -150,4 +150,77 @@ export class CredentialsService {
 
     return { status: 'success' };
   }
+
+  async getBulkSyncPage(mac_addr: string, pageSize: number = 5) {
+    const device = await this.devicesService.findByMac(mac_addr);
+
+    if (!device) {
+      throw new NotFoundException(`Device with mac_addr ${mac_addr} not found.`);
+    }
+
+    const unmappedEmployees = await this.prisma.employee.findMany({
+      where: {
+        template_fingerprint: { not: null },
+        NOT: {
+          mappings: {
+            some: { device_id: device.device_id },
+          },
+        },
+      },
+      select: {
+        employee_id: true,
+        template_fingerprint: true,
+      },
+      orderBy: { employee_id: 'asc' },
+      take: pageSize,
+    });
+
+    const total = await this.prisma.employee.count({
+      where: {
+        template_fingerprint: { not: null },
+        NOT: {
+          mappings: {
+            some: { device_id: device.device_id },
+          },
+        },
+      },
+    });
+
+    return {
+      items: unmappedEmployees.map((e) => ({
+        employee_id: e.employee_id,
+        template_data: e.template_fingerprint,
+      })),
+      has_more: total > pageSize,
+      total,
+    };
+  }
+
+  async ackBulkSync(
+    mac_addr: string,
+    mappings: { employee_id: number; fingerprint_id: number }[],
+  ) {
+    const device = await this.devicesService.findByMac(mac_addr);
+
+    if (!device) {
+      throw new NotFoundException(`Device with mac_addr ${mac_addr} not found.`);
+    }
+
+    const data = mappings.map((m) => ({
+      device_id: device.device_id,
+      employee_id: m.employee_id,
+      fingerprint_id: m.fingerprint_id,
+    }));
+
+    const result = await this.prisma.mapping.createMany({
+      data,
+      skipDuplicates: true,
+    });
+
+    this.logger.log(
+      `[BulkSync] ACK from device ${device.device_id}: ${result.count} mappings created`,
+    );
+
+    return { synced: result.count };
+  }
 }
