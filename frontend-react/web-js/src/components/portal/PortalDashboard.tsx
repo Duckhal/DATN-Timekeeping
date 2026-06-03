@@ -45,15 +45,17 @@ const STATUS_LABEL: Record<AttendanceStatusCode, string> = {
   COMPLETED: 'Complete',
   SHORTHOURS: 'Short Hours',
   DAYOFF: 'Day Off',
+  WEEKEND: 'Weekend',
 }
 
 const STATUS_COLOR: Record<
   AttendanceStatusCode,
-  'success' | 'warning' | 'default'
+  'success' | 'warning' | 'default' | 'info'
 > = {
   COMPLETED: 'success',
   SHORTHOURS: 'warning',
   DAYOFF: 'default',
+  WEEKEND: 'info',
 }
 
 const MONTH_LABEL = new Intl.DateTimeFormat('en-US', {

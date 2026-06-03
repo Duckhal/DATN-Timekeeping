@@ -1,4 +1,4 @@
-export type AttendanceStatusCode = 'COMPLETED' | 'SHORTHOURS' | 'DAYOFF'
+export type AttendanceStatusCode = 'COMPLETED' | 'SHORTHOURS' | 'DAYOFF' | 'WEEKEND'
 
 export type AttendanceItem = {
   attendance_id: string

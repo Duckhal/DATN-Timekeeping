@@ -46,30 +46,39 @@ export class RequestsService {
 
   async createOtRequest(employeeId: number, dto: CreateOtRequestDto) {
     const today = this.todayDate();
+    const targetDate = dto.date ? this.parseDateString(dto.date) : today;
+
+    // Allow OT requests for today through 7 days ahead (inclusive).
+    const maxDate = this.addDays(today, 7);
+    if (targetDate < today || targetDate > maxDate) {
+      throw new BadRequestException(
+        'OT request date must be between today and 7 days ahead.',
+      );
+    }
 
     const existing = await this.prisma.request.findFirst({
       where: {
         employee_id: employeeId,
         type: 'OT',
         status: 'PENDING',
-        date: today,
+        date: targetDate,
       },
     });
     if (existing) {
-      throw new BadRequestException('You already have a pending OT request for today.');
+      throw new BadRequestException('You already have a pending OT request for that date.');
     }
 
     const request = await this.prisma.request.create({
       data: {
         employee_id: employeeId,
         type: 'OT',
-        date: today,
+        date: targetDate,
         reason: dto.reason,
       },
       select: REQUEST_SELECT,
     });
 
-    this.logger.log(`[CreateOT] employee=${employeeId} request_id=${request.request_id}`);
+    this.logger.log(`[CreateOT] employee=${employeeId} request_id=${request.request_id} date=${this.formatDate(targetDate)}`);
     return this.formatRequest(request);
   }
 
@@ -255,12 +264,35 @@ export class RequestsService {
         });
 
         if (attendance && attendance.checkin_time) {
+          const dayOfWeek = attendance.date.getDay();
+          const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+          // Re-check OT approval for this day so weekend-with-OT and weekday-with-OT
+          // both lift the 18:30 cap and deduct dinner overlap correctly.
+          const approvedOt = await tx.request.findFirst({
+            where: {
+              employee_id: request.employee_id,
+              type: 'OT',
+              status: 'APPROVED',
+              date: attendance.date,
+            },
+            select: { request_id: true },
+          });
+          const otApproved = approvedOt !== null;
+
           const checkinSec = toSecondsOfDay(attendance.checkin_time)!;
           const endTimeSec = toSecondsOfDay(request.end_time)!;
-          const credit = computeStandardCredit(checkinSec, endTimeSec);
+          const credit = computeStandardCredit(checkinSec, endTimeSec, otApproved, isWeekend);
           const workedSeconds = credit * STANDARD_WORK_SECONDS;
-          const missingMinutes = Math.max(0, Math.round((STANDARD_WORK_SECONDS - workedSeconds) / 60));
-          const status = credit >= 1 ? 'COMPLETED' : 'SHORTHOURS';
+          const missingMinutes = isWeekend && !otApproved
+            ? 0
+            : Math.max(0, Math.round((STANDARD_WORK_SECONDS - workedSeconds) / 60));
+          const status: 'COMPLETED' | 'SHORTHOURS' | 'WEEKEND' =
+            isWeekend && !otApproved
+              ? 'WEEKEND'
+              : credit >= 1
+                ? 'COMPLETED'
+                : 'SHORTHOURS';
 
           await tx.dailyAttendance.update({
             where: { attendance_id: request.attendance_id },
@@ -337,6 +369,17 @@ export class RequestsService {
   private todayDate(): Date {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  }
+
+  private parseDateString(iso: string): Date {
+    const [y, m, d] = iso.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  }
+
+  private addDays(base: Date, days: number): Date {
+    const next = new Date(base);
+    next.setDate(next.getDate() + days);
+    return next;
   }
 
   private toMonthYear(date: Date): string {

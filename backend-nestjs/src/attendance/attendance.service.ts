@@ -12,7 +12,7 @@ export type AttendanceItem = {
   work_end: string | null;
   missing_minutes: number;
   total_workday: string;
-  status: 'COMPLETED' | 'SHORTHOURS' | 'DAYOFF';
+  status: 'COMPLETED' | 'SHORTHOURS' | 'DAYOFF' | 'WEEKEND';
 };
 
 export type AttendancePage = {
@@ -78,10 +78,13 @@ export class AttendanceService {
 
     const items: AttendanceItem[] = rows.map((row) => {
       const dateKey = row.date.toISOString().slice(0, 10);
+      const dayOfWeek = row.date.getDay();
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
       const computed = computeAttendance({
         checkin: row.checkin_time,
         checkout: row.checkout_time,
         otApproved: otDates.has(dateKey),
+        isWeekend,
       });
       return {
         attendance_id: row.attendance_id.toString(),

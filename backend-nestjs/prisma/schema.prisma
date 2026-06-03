@@ -24,6 +24,7 @@ enum CalcStatus {
   SHORTHOURS
   DAYOFF
   COMPLETED
+  WEEKEND
 }
 
 enum RequestType {

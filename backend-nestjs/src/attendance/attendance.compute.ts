@@ -28,6 +28,7 @@ const T_1200 = 12 * SECONDS_PER_HOUR;
 const T_1330 = 13 * SECONDS_PER_HOUR + 30 * 60;
 const T_1730 = 17 * SECONDS_PER_HOUR + 30 * 60;
 const T_1830 = 18 * SECONDS_PER_HOUR + 30 * 60;
+const T_2000 = 20 * SECONDS_PER_HOUR;
 
 export type WorkingWindow = {
   /** HH:mm */
@@ -46,7 +47,7 @@ export type AttendanceComputed = {
   /** Decimal string with 4 decimals to match the schema (Decimal(5,4)). */
   totalWorkday: string;
   missingMinutes: number;
-  status: 'COMPLETED' | 'SHORTHOURS' | 'DAYOFF';
+  status: 'COMPLETED' | 'SHORTHOURS' | 'DAYOFF' | 'WEEKEND';
 };
 
 /**
@@ -99,36 +100,62 @@ export function deriveWorkingWindow(checkinSec: number | null): WorkingWindow | 
 }
 
 /**
- * Compute the standard daily credit using the §3.1 overlap formula.
- * Returns a number in the range [0, 1] normally, or > 1 when OT is approved
- * and the 18:30 cap is lifted.
+ * Compute the standard daily credit using the §3.1 / §3.2 overlap formula.
+ *
+ * Branches:
+ *   - weekday + no OT  → cap T_out at 18:30, deduct lunch overlap, cap credit at 1.0
+ *   - weekday + OT     → no 18:30 cap, deduct lunch + dinner overlap, no credit cap
+ *   - weekend + no OT  → 0 (caller decides; this branch returns 0 for safety)
+ *   - weekend + OT     → no caps, deduct lunch + dinner overlap
  */
 export function computeStandardCredit(
   checkinSec: number,
   checkoutSec: number,
   otApproved = false,
+  isWeekend = false,
 ): number {
   if (checkoutSec <= checkinSec) return 0;
-  const tOutStd = otApproved ? checkoutSec : Math.min(checkoutSec, T_1830);
+
+  if (isWeekend && !otApproved) return 0;
+
+  const liftCap = otApproved; // both weekday-OT and weekend-OT lift the 18:30 / 1.0 caps
+  const tOutStd = liftCap ? checkoutSec : Math.min(checkoutSec, T_1830);
   if (tOutStd <= checkinSec) return 0;
+
   const lunchOverlap = overlap(checkinSec, tOutStd, T_1200, T_1330);
-  const sWork = tOutStd - checkinSec - lunchOverlap;
+  const dinnerOverlap = otApproved
+    ? overlap(checkinSec, tOutStd, T_1830, T_2000)
+    : 0;
+
+  const sWork = tOutStd - checkinSec - lunchOverlap - dinnerOverlap;
   if (sWork <= 0) return 0;
-  return otApproved ? sWork / STANDARD_WORK_SECONDS : Math.min(1, sWork / STANDARD_WORK_SECONDS);
+
+  return liftCap
+    ? sWork / STANDARD_WORK_SECONDS
+    : Math.min(1, sWork / STANDARD_WORK_SECONDS);
 }
 
 /**
  * Pure function — given raw DailyAttendance fields, derive every field shown
  * on the portal. Stores `total_workday` and `status` are *ignored* for now;
  * Issue 1 / Option C: compute on read, never persist back.
+ *
+ * Weekend rule (added 2026-06-02):
+ *   - If `isWeekend` and no `otApproved` → status = WEEKEND, credit = 0,
+ *     missing_minutes = 0 (do NOT penalize the employee for not working).
+ *   - If `isWeekend` and `otApproved` → compute via `computeStandardCredit`
+ *     using the OT branch (no caps, lunch + dinner overlaps deducted).
  */
 export function computeAttendance(input: {
   checkin: Date | null;
   checkout: Date | null;
   otApproved?: boolean;
+  isWeekend?: boolean;
 }): AttendanceComputed {
   const checkinSec = toSecondsOfDay(input.checkin);
   const checkoutSec = toSecondsOfDay(input.checkout);
+  const isWeekend = input.isWeekend === true;
+  const otApproved = input.otApproved === true;
 
   if (checkinSec === null && checkoutSec === null) {
     return {
@@ -138,11 +165,24 @@ export function computeAttendance(input: {
       workEnd: null,
       totalWorkday: '0.0000',
       missingMinutes: 0,
-      status: 'DAYOFF',
+      status: isWeekend ? 'WEEKEND' : 'DAYOFF',
     };
   }
 
   const window = deriveWorkingWindow(checkinSec);
+
+  // Weekend without approved OT: show the scan times but credit = 0 and no penalty.
+  if (isWeekend && !otApproved) {
+    return {
+      checkinTime: checkinSec !== null ? formatHHmmss(checkinSec) : null,
+      checkoutTime: checkoutSec !== null ? formatHHmmss(checkoutSec) : null,
+      workStart: window?.workStart ?? null,
+      workEnd: window?.workEnd ?? null,
+      totalWorkday: '0.0000',
+      missingMinutes: 0,
+      status: 'WEEKEND',
+    };
+  }
 
   // Without a checkout the day cannot be credited. Per Timekeeping.md §2.2
   // a missing scan yields zero credit until an explanation request fixes it.
@@ -158,7 +198,7 @@ export function computeAttendance(input: {
     };
   }
 
-  const credit = computeStandardCredit(checkinSec, checkoutSec, input.otApproved);
+  const credit = computeStandardCredit(checkinSec, checkoutSec, otApproved, isWeekend);
   const workedSeconds = credit * STANDARD_WORK_SECONDS;
   const missingMinutes = Math.max(
     0,

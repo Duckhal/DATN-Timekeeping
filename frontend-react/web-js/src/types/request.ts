@@ -25,6 +25,7 @@ export type RequestsPage = {
 
 export type CreateOtRequestPayload = {
   reason: string
+  date?: string
 }
 
 export type CreateExplanationPayload = {

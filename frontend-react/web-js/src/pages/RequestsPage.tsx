@@ -54,7 +54,15 @@ export function RequestsPage() {
   // OT dialog
   const [otOpen, setOtOpen] = useState(false)
   const [otReason, setOtReason] = useState('')
+  const [otDate, setOtDate] = useState<string>(() => new Date().toISOString().slice(0, 10))
   const [otSubmitting, setOtSubmitting] = useState(false)
+
+  const otMinDate = new Date().toISOString().slice(0, 10)
+  const otMaxDate = (() => {
+    const d = new Date()
+    d.setDate(d.getDate() + 7)
+    return d.toISOString().slice(0, 10)
+  })()
 
   // Explanation dialog
   const [expOpen, setExpOpen] = useState(false)
@@ -86,12 +94,13 @@ export function RequestsPage() {
   }, [fetchRequests])
 
   const handleCreateOt = async () => {
-    if (!otReason.trim()) return
+    if (!otReason.trim() || !otDate) return
     setOtSubmitting(true)
     try {
-      await createOtRequest({ reason: otReason.trim() })
+      await createOtRequest({ reason: otReason.trim(), date: otDate })
       setOtOpen(false)
       setOtReason('')
+      setOtDate(new Date().toISOString().slice(0, 10))
       setSnack({ message: 'OT request created', severity: 'success' })
       void fetchRequests()
     } catch (err: any) {
@@ -209,7 +218,17 @@ export function RequestsPage() {
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField label="Approver" value={managerName} fullWidth InputProps={{ readOnly: true }} />
-            <TextField label="Date" value={new Date().toISOString().slice(0, 10)} fullWidth InputProps={{ readOnly: true }} />
+            <TextField
+              label="Date"
+              type="date"
+              value={otDate}
+              onChange={(e) => setOtDate(e.target.value)}
+              fullWidth
+              required
+              InputLabelProps={{ shrink: true }}
+              inputProps={{ min: otMinDate, max: otMaxDate }}
+              helperText="Allowed range: today through 7 days ahead"
+            />
             <TextField
               label="Reason"
               value={otReason}
@@ -223,7 +242,7 @@ export function RequestsPage() {
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setOtOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleCreateOt} disabled={otSubmitting || !otReason.trim()}>
+          <Button variant="contained" onClick={handleCreateOt} disabled={otSubmitting || !otReason.trim() || !otDate}>
             {otSubmitting ? 'Submitting…' : 'Submit'}
           </Button>
         </DialogActions>
