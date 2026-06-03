@@ -12,6 +12,7 @@ import { EmployeesPage } from './pages/EmployeesPage'
 import { RequestsPage } from './pages/RequestsPage'
 import { ApprovalsPage } from './pages/ApprovalsPage'
 import { AppThemeProvider } from './providers/theme/AppThemeProvider'
+import { MainLayout } from './components/layout/MainLayout'
 
 function App() {
   return (
@@ -22,13 +23,15 @@ function App() {
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route element={<ProtectedRoute />}>
-                <Route path="/portal" element={<PortalPage />} />
-                <Route path="/profile" element={<ProfilePage />} />
-                <Route path="/devices" element={<DevicesPage />} />
-                <Route path="/credentials" element={<CredentialsPage />} />
-                <Route path="/employees" element={<EmployeesPage />} />
-                <Route path="/requests" element={<RequestsPage />} />
-                <Route path="/approvals" element={<ApprovalsPage />} />
+                <Route element={<MainLayout />}>
+                  <Route path="/portal" element={<PortalPage />} />
+                  <Route path="/profile" element={<ProfilePage />} />
+                  <Route path="/devices" element={<DevicesPage />} />
+                  <Route path="/credentials" element={<CredentialsPage />} />
+                  <Route path="/employees" element={<EmployeesPage />} />
+                  <Route path="/requests" element={<RequestsPage />} />
+                  <Route path="/approvals" element={<ApprovalsPage />} />
+                </Route>
                 <Route path="/change-password" element={<ChangePasswordPage />} />
               </Route>
               <Route path="*" element={<Navigate to="/login" replace />} />

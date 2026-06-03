@@ -176,9 +176,6 @@ void MqttService::handleMessage(char* topic, uint8_t* payload, unsigned int leng
   }
 
   if (command == "SYNC_FINGERPRINT") {
-    // DEBUG 2026-06-03: dump parsed fields right after deserialize to figure
-    // out whether the issue is heap allocation, doc corruption, or field type
-    // mismatch. Remove after diagnosis.
     if (doc["employee_id"].isNull() || doc["template_data"].isNull()) {
       Serial.println("[MQTT] SYNC_FINGERPRINT missing employee_id or template_data.");
       return;
