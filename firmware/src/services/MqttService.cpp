@@ -128,15 +128,31 @@ void MqttService::onRawMessage(char* topic, uint8_t* payload, unsigned int lengt
 }
 
 void MqttService::handleMessage(char* topic, uint8_t* payload, unsigned int length) {
+  Serial.printf("[MQTT-DBG] handleMessage invoked: topic='%s' length=%u\n",
+                topic ? topic : "(null)", length);
+
   if (!topic || !payload || length == 0) {
     return;
   }
-
-  DynamicJsonDocument doc(2048);
+  DynamicJsonDocument doc(4096);
   const DeserializationError err = deserializeJson(doc, payload, length);
   if (err) {
     Serial.printf("[MQTT] Invalid JSON command: %s\n", err.c_str());
     return;
+  }
+  Serial.printf("[MQTT-DBG] post-parse: command='%s' has_eid=%d has_tpl=%d\n",
+                doc["command"] | "(missing)",
+                !doc["employee_id"].isNull(),
+                !doc["template_data"].isNull());
+  if (!doc["employee_id"].isNull()) {
+    if (doc["employee_id"].is<int>()) {
+      Serial.printf("[MQTT-DBG] employee_id type=int value=%d\n", doc["employee_id"].as<int>());
+    } else if (doc["employee_id"].is<const char*>()) {
+      Serial.printf("[MQTT-DBG] employee_id type=str value='%s'\n", doc["employee_id"].as<const char*>());
+    }
+  }
+  if (!doc["template_data"].isNull()) {
+    Serial.printf("[MQTT-DBG] template_data length=%u\n", doc["template_data"].as<String>().length());
   }
 
   const String command = doc["command"] | "";
@@ -158,23 +174,27 @@ void MqttService::handleMessage(char* topic, uint8_t* payload, unsigned int leng
   }
 
   if (command == "SYNC_FINGERPRINT") {
-    const String employeeIdStr = doc["employee_id"] | "";
-    const String templateData = doc["template_data"] | "";
-    const String sourceMac = doc["mac_addr"] | "";
-    if (employeeIdStr.length() == 0 || templateData.length() == 0) {
-      Serial.println("[MQTT] Missing employee_id or template_data for SYNC_FINGERPRINT command.");
+    // DEBUG 2026-06-03: dump parsed fields right after deserialize to figure
+    // out whether the issue is heap allocation, doc corruption, or field type
+    // mismatch. Remove after diagnosis.
+    if (doc["employee_id"].isNull() || doc["template_data"].isNull()) {
+      Serial.println("[MQTT] SYNC_FINGERPRINT missing employee_id or template_data.");
       return;
     }
-
-    uint32_t employeeId = (uint32_t)employeeIdStr.toInt();
+    const uint32_t employeeId =
+        doc["employee_id"].is<uint32_t>()
+            ? doc["employee_id"].as<uint32_t>()
+            : (uint32_t)String(doc["employee_id"].as<const char*>()).toInt();
+    const String templateData = doc["template_data"].as<String>();
+    const String sourceMac = doc["mac_addr"] | "";
 
     syncEmployeeId_ = employeeId;
     syncTemplateData_ = templateData;
     syncSourceMac_ = sourceMac;
     syncCommandPending_ = true;
 
-    Serial.printf("[MQTT] Received SYNC_FINGERPRINT command. employee_id=%lu source_mac=%s\n",
-                  (unsigned long)employeeId, sourceMac.c_str());
+    Serial.printf("[MQTT] Received SYNC_FINGERPRINT command. employee_id=%lu source_mac=%s template_len=%u\n",
+                  (unsigned long)employeeId, sourceMac.c_str(), templateData.length());
   }
 
   if (command == "STATUS_UPDATE") {
