@@ -4,11 +4,11 @@ import {
   Alert,
   Box,
   Button,
-  Chip,
   CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
+  DialogContentText,
   DialogTitle,
   FormControl,
   InputLabel,
@@ -26,6 +26,11 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
+import {
+  CheckCircle as CheckIcon,
+  Cancel as CancelIcon,
+  DeleteOutline as DeleteIcon,
+} from '@mui/icons-material'
 import {
   attachRfidCard,
   getActiveDevices,
@@ -50,6 +55,13 @@ type EnrollState = {
   hasStarted: boolean
 }
 
+// Cấu trúc State cho Dialog xác nhận xóa
+type RemoveConfirmState = {
+  open: boolean
+  employee: UnassignedCredentialEmployee | null
+  type: 'RFID' | 'FINGERPRINT' | null
+}
+
 const DEFAULT_SNACKBAR: SnackbarState = {
   open: false,
   severity: 'info',
@@ -62,6 +74,12 @@ const DEFAULT_ENROLL: EnrollState = {
   selectedDeviceId: '',
   isStarting: false,
   hasStarted: false,
+}
+
+const DEFAULT_REMOVE_CONFIRM: RemoveConfirmState = {
+  open: false,
+  employee: null,
+  type: null,
 }
 
 function getApiErrorMessage(error: unknown, fallback: string): string {
@@ -79,14 +97,6 @@ function getApiErrorMessage(error: unknown, fallback: string): string {
   return fallback
 }
 
-function hasMissingCredential(employee: UnassignedCredentialEmployee, type: 'RFID' | 'FINGERPRINT'): boolean {
-  if (type === 'RFID') {
-    return !employee.rfid_tag
-  }
-
-  return !employee.template_fingerprint
-}
-
 export function CredentialsPage() {
   const [employees, setEmployees] = useState<UnassignedCredentialEmployee[]>([])
   const [activeDevices, setActiveDevices] = useState<Device[]>([])
@@ -101,8 +111,10 @@ export function CredentialsPage() {
   const [rfidConflictMessage, setRfidConflictMessage] = useState('')
 
   const [enroll, setEnroll] = useState<EnrollState>(DEFAULT_ENROLL)
-
   const [snackbar, setSnackbar] = useState<SnackbarState>(DEFAULT_SNACKBAR)
+  
+  // Khởi tạo state quản lý việc xác nhận xóa
+  const [removeConfirm, setRemoveConfirm] = useState<RemoveConfirmState>(DEFAULT_REMOVE_CONFIRM)
 
   const loadPageData = async () => {
     try {
@@ -130,18 +142,15 @@ export function CredentialsPage() {
 
   const openAttachRfidDialog = (employee: UnassignedCredentialEmployee) => {
     setRfidEmployee(employee)
-    setRfidTagDraft('')
+    setRfidTagDraft(employee.rfid_tag ?? '')
     setRfidConflictMessage('')
     setRfidDialogOpen(true)
   }
 
   const handleAttachRfid = async () => {
-    if (!rfidEmployee) {
-      return
-    }
+    if (!rfidEmployee) return
 
     const normalizedTag = rfidTagDraft.trim()
-
     if (!normalizedTag) {
       setRfidConflictMessage('RFID tag is required.')
       return
@@ -160,31 +169,43 @@ export function CredentialsPage() {
       })
     } catch (error) {
       const axiosError = error as AxiosError<{ message?: string }>
-
       if (axiosError.response?.status === 409) {
         setRfidConflictMessage('This RFID card is already assigned to another employee.')
         return
       }
-
       setRfidConflictMessage(getApiErrorMessage(error, 'Unable to attach RFID card.'))
     } finally {
       setIsSubmittingRfid(false)
     }
   }
 
-  const handleRemoveCredential = async (
-    employeeId: number,
-    type: 'RFID' | 'FINGERPRINT',
+  // Mở hộp thoại trung gian yêu cầu xác nhận trước khi xóa
+  const triggerRemoveConfirmation = (
+    employee: UnassignedCredentialEmployee,
+    type: 'RFID' | 'FINGERPRINT'
   ) => {
+    setRemoveConfirm({
+      open: true,
+      employee,
+      type,
+    })
+  }
+
+  // Hàm thực thi xóa thật sự sau khi HR đã ấn đồng ý ở Dialog xác nhận
+  const handleExecuteRemove = async () => {
+    const { employee, type } = removeConfirm
+    if (!employee || !type) return
+
     try {
       setIsRemovingCredential(true)
-      await removeCredential(employeeId, type)
+      setRemoveConfirm(DEFAULT_REMOVE_CONFIRM) // Đóng ngay hộp thoại
+      await removeCredential(employee.employee_id, type)
       await loadPageData()
 
       const message =
         type === 'RFID'
-          ? 'RFID card removed successfully.'
-          : 'Fingerprint removed. Online devices will be cleaned up immediately; offline devices will self-heal on the next check-in.'
+          ? `Successfully removed RFID card for ${employee.full_name}.`
+          : `Fingerprint for ${employee.full_name} removed. Online hardware devices will synchronize immediately.`
 
       setSnackbar({
         open: true,
@@ -268,7 +289,7 @@ export function CredentialsPage() {
           <TableCell colSpan={6}>
             <Box sx={{ py: 5, textAlign: 'center' }}>
               <Typography variant="body1" fontWeight={600}>
-                No employees need credential assignment.
+                No employees found in the system.
               </Typography>
             </Box>
           </TableCell>
@@ -276,48 +297,93 @@ export function CredentialsPage() {
       )
     }
 
-    return employees.map((employee) => (
-      <TableRow key={employee.employee_id} hover>
-        <TableCell>{employee.employee_id}</TableCell>
-        <TableCell>{employee.full_name}</TableCell>
-        <TableCell>{employee.email}</TableCell>
-        <TableCell>
-          <Stack direction="row" spacing={1}>
-            {hasMissingCredential(employee, 'RFID') ? <Chip size="small" color="warning" label="Missing RFID" /> : null}
-            {hasMissingCredential(employee, 'FINGERPRINT') ? <Chip size="small" color="warning" label="Missing Fingerprint" /> : null}
-          </Stack>
-        </TableCell>
-        <TableCell>{employee.rfid_tag ?? '-'}</TableCell>
-        <TableCell>
-          <Stack direction="row" spacing={1} flexWrap="wrap">
-            <Button size="small" variant="outlined" onClick={() => openAttachRfidDialog(employee)}>
-              Attach RFID card
-            </Button>
-            <Button
-              size="small"
-              color="error"
-              variant="outlined"
-              disabled={!employee.rfid_tag || isRemovingCredential}
-              onClick={() => void handleRemoveCredential(employee.employee_id, 'RFID')}
-            >
-              Remove RFID card
-            </Button>
-            <Button size="small" variant="contained" onClick={() => openEnrollDialog(employee)}>
-              Register new fingerprint
-            </Button>
-            <Button
-              size="small"
-              color="error"
-              variant="outlined"
-              disabled={!employee.template_fingerprint || isRemovingCredential}
-              onClick={() => void handleRemoveCredential(employee.employee_id, 'FINGERPRINT')}
-            >
-              Remove fingerprint
-            </Button>
-          </Stack>
-        </TableCell>
-      </TableRow>
-    ))
+    return employees.map((employee) => {
+      const hasRfid = !!employee.rfid_tag
+      const hasFingerprint = !!employee.template_fingerprint
+
+      return (
+        <TableRow key={employee.employee_id} hover>
+          <TableCell>{employee.employee_id}</TableCell>
+          <TableCell fontWeight={500}>{employee.full_name}</TableCell>
+          <TableCell>{employee.email}</TableCell>
+          
+          {/* Fingerprint Status */}
+          <TableCell align="center">
+            {hasFingerprint ? (
+              <CheckIcon color="success" fontSize="small" titleAccess="Registered" />
+            ) : (
+              <CancelIcon color="error" fontSize="small" titleAccess="Not Registered" />
+            )}
+          </TableCell>
+
+          {/* RFID Status and Tag Display */}
+          <TableCell>
+            <Stack direction="row" spacing={1} alignItems="center">
+              {hasRfid ? (
+                <>
+                  <CheckIcon color="success" fontSize="small" />
+                  <Typography variant="body2" fontFamily="monospace" sx={{ bgcolor: 'action.hover', px: 1, py: 0.2, borderRadius: 1 }}>
+                    {employee.rfid_tag}
+                  </Typography>
+                </>
+              ) : (
+                <>
+                  <CancelIcon color="error" fontSize="small" />
+                  <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>No card</Typography>
+                </>
+              )}
+            </Stack>
+          </TableCell>
+
+          {/* SỬA ĐỔI: Chuyển align thành center và dùng justifyContent="center" để căn giữa tuyệt đối */}
+          <TableCell align="center">
+            <Stack direction="row" spacing={1} justifyContent="center" alignItems="center">
+              {/* RFID Actions Group */}
+              <Box sx={{ borderRight: '1px solid', borderColor: 'divider', pr: 1, display: 'flex', gap: 1, alignItems: 'center' }}>
+                <Button 
+                  size="small" 
+                  variant="outlined" 
+                  onClick={() => openAttachRfidDialog(employee)}
+                  sx={{ minWidth: '100px' }}
+                >
+                  {hasRfid ? 'Change RFID' : 'Attach RFID'}
+                </Button>
+                <Button
+                  size="small"
+                  color="error"
+                  variant="text"
+                  disabled={!hasRfid || isRemovingCredential}
+                  onClick={() => triggerRemoveConfirmation(employee, 'RFID')}
+                >
+                  Remove
+                </Button>
+              </Box>
+
+              {/* Fingerprint Actions Group */}
+              <Stack direction="row" spacing={1} alignItems="center" sx={{ pl: 0.5 }}>
+                <Button 
+                  size="small" 
+                  variant={hasFingerprint ? "outlined" : "contained"} 
+                  onClick={() => openEnrollDialog(employee)}
+                  sx={{ minWidth: '140px' }}
+                >
+                  {hasFingerprint ? 'Re-register Finger' : 'Register Finger'}
+                </Button>
+                <Button
+                  size="small"
+                  color="error"
+                  variant="text"
+                  disabled={!hasFingerprint || isRemovingCredential}
+                  onClick={() => triggerRemoveConfirmation(employee, 'FINGERPRINT')}
+                >
+                  Remove
+                </Button>
+              </Stack>
+            </Stack>
+          </TableCell>
+        </TableRow>
+      )
+    })
   }, [employees, isLoading, isRemovingCredential])
 
   return (
@@ -325,24 +391,24 @@ export function CredentialsPage() {
       <Stack spacing={2}>
         <Box>
           <Typography variant="h5" fontWeight={700}>
-            Credentials Assignment
+            Credentials Management
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Assign or revoke RFID and fingerprint credentials for employees.
+            View, assign, modify or revoke RFID and fingerprint authentication for all employees.
           </Typography>
         </Box>
 
-        <Paper sx={{ border: '1px solid', borderColor: 'divider' }}>
+        <Paper sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, overflow: 'hidden' }}>
           <TableContainer>
             <Table>
-              <TableHead>
+              <TableHead sx={{ bgcolor: 'action.hover' }}>
                 <TableRow>
-                  <TableCell>ID</TableCell>
+                  <TableCell width="60px">ID</TableCell>
                   <TableCell>Full Name</TableCell>
                   <TableCell>Email</TableCell>
-                  <TableCell>Missing Credentials</TableCell>
-                  <TableCell>Current RFID</TableCell>
-                  <TableCell>Actions</TableCell>
+                  <TableCell align="center" width="120px">Fingerprint</TableCell>
+                  <TableCell width="220px">RFID Status</TableCell>
+                  <TableCell align="center" width="450px">Actions</TableCell> 
                 </TableRow>
               </TableHead>
               <TableBody>{rows}</TableBody>
@@ -351,19 +417,21 @@ export function CredentialsPage() {
         </Paper>
       </Stack>
 
+      {/* Dialog Attach/Edit RFID */}
       <Dialog open={rfidDialogOpen} onClose={() => setRfidDialogOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Attach RFID Card</DialogTitle>
+        <DialogTitle>{rfidEmployee?.rfid_tag ? 'Modify RFID Card' : 'Attach RFID Card'}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <Typography variant="body2" color="text.secondary">
-              Employee: {rfidEmployee?.full_name ?? '-'}
+              Employee: <strong>{rfidEmployee?.full_name}</strong>
             </Typography>
             <TextField
-              label="RFID Tag"
+              label="RFID Tag Code"
               placeholder="Scan or type RFID code"
               value={rfidTagDraft}
               onChange={(event) => setRfidTagDraft(event.target.value)}
               fullWidth
+              autoFocus
             />
             {rfidConflictMessage ? <Alert severity="error">{rfidConflictMessage}</Alert> : null}
           </Stack>
@@ -378,19 +446,20 @@ export function CredentialsPage() {
         </DialogActions>
       </Dialog>
 
+      {/* Dialog Register Fingerprint */}
       <Dialog open={enroll.open} onClose={closeEnrollDialog} fullWidth maxWidth="sm">
-        <DialogTitle>Register New Fingerprint</DialogTitle>
+        <DialogTitle>Register Fingerprint</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <Typography variant="body2" color="text.secondary">
-              Employee: {enroll.employee?.full_name ?? '-'}
+              Employee: <strong>{enroll.employee?.full_name}</strong>
             </Typography>
 
             <FormControl fullWidth>
-              <InputLabel id="active-device-label">Active Device</InputLabel>
+              <InputLabel id="active-device-label">Select Active Scanner</InputLabel>
               <Select
                 labelId="active-device-label"
-                label="Active Device"
+                label="Select Active Scanner"
                 value={enroll.selectedDeviceId}
                 onChange={(event) => {
                   setEnroll((prev) => ({
@@ -414,7 +483,7 @@ export function CredentialsPage() {
                 onClick={handleStartScanning}
                 disabled={enroll.isStarting || activeDevices.length === 0}
               >
-                {enroll.isStarting ? 'Starting...' : 'Start scanning'}
+                {enroll.isStarting ? 'Starting...' : 'Start scanning command'}
               </Button>
             ) : null}
 
@@ -423,7 +492,7 @@ export function CredentialsPage() {
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <CircularProgress size={20} />
                   <Typography variant="body2">
-                    Please ask the staff to place your hand on the scanner. The device saves automatically.
+                    Please ask the staff to place their finger on the hardware scanner. The device saves automatically.
                   </Typography>
                 </Box>
                 <Button
@@ -440,6 +509,32 @@ export function CredentialsPage() {
         <DialogActions>
           <Button onClick={closeEnrollDialog} disabled={enroll.isStarting}>
             Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* BỔ SUNG: Hộp thoại xác nhận hủy bỏ phương thức xác thực (Remove Confirmation) */}
+      <Dialog
+        open={removeConfirm.open}
+        onClose={() => setRemoveConfirm(DEFAULT_REMOVE_CONFIRM)}
+        aria-labelledby="remove-confirm-title"
+        aria-describedby="remove-confirm-description"
+      >
+        <DialogTitle id="remove-confirm-title" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <DeleteIcon color="error" /> Confirm Revocation
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="remove-confirm-description">
+            Are you sure you want to completely revoke the <strong>{removeConfirm.type}</strong> credential for employee <strong>{removeConfirm.employee?.full_name}</strong>? 
+            This action cannot be undone and will impact hardware authorization modules immediately.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setRemoveConfirm(DEFAULT_REMOVE_CONFIRM)} color="inherit" variant="outlined">
+            Cancel
+          </Button>
+          <Button onClick={() => void handleExecuteRemove()} color="error" variant="contained" autoFocus>
+            Revoke Credential
           </Button>
         </DialogActions>
       </Dialog>

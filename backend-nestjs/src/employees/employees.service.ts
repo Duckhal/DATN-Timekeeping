@@ -95,9 +95,6 @@ export class EmployeesService {
 
   async findUnassignedCredentials() {
     return this.prisma.employee.findMany({
-      where: {
-        OR: [{ rfid_tag: null }, { template_fingerprint: null }],
-      },
       select: SAFE_SELECT,
       orderBy: { employee_id: 'asc' },
     });
