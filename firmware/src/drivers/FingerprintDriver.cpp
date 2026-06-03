@@ -78,130 +78,105 @@ FingerprintDriver::MatchResult FingerprintDriver::tryMatchFinger(uint16_t& outId
 }
 
 String FingerprintDriver::getTemplateAsHex(uint16_t id) {
-  // 1. Tải dữ liệu từ Flash lên CharBuffer 1
-  uint8_t result = fingerprint_.loadModel(id);
-  if (result != FINGERPRINT_OK) {
-    Serial.println("[Fingerprint] Error loading model into CharBuffer.");
-    return "";
-  }
+  if (fingerprint_.loadModel(id) != FINGERPRINT_OK) return "";
+  if (fingerprint_.getModel() != FINGERPRINT_OK) return "";
 
-  // 2. Yêu cầu đẩy CharBuffer 1 qua UART
-  result = fingerprint_.getModel();
-  if (result != FINGERPRINT_OK) {
-    Serial.println("[Fingerprint] Error requesting getModel.");
-    return "";
-  }
-
-  // 3. Hứng đúng 534 bytes (2 gói tin, mỗi gói 267 bytes: 9 Header + 256 Data + 2 Checksum)
-  uint8_t bytesReceived[534];
-  memset(bytesReceived, 0, 534);
-
+  uint8_t rawTemplate[512];
+  uint32_t dataIdx = 0;
   uint32_t starttime = millis();
-  int i = 0;
-  // Timeout an toàn là 2000ms (2 giây) cho thao tác đọc Serial
-  while (i < 534 && (millis() - starttime) < 2000) {
-    if (serialPort_.available()) {
-      bytesReceived[i++] = serialPort_.read();
+  bool done = false;
+
+  while (!done && (millis() - starttime) < 3000) { // Limit total execution time to 3 seconds
+    if (serialPort_.available() >= 9) {
+      if (serialPort_.read() == 0xEF && serialPort_.peek() == 0x01) {
+        serialPort_.read(); // 0x01
+        
+        // FIX: Replace unconditional while loops with safe timeout checks
+        uint8_t headerBuf[7];
+        uint32_t readBytes = serialPort_.readBytes(headerBuf, 7); // Built-in read timeout
+        if (readBytes < 7) return ""; 
+
+        uint8_t pid = headerBuf[4];
+        uint16_t dataLen = (headerBuf[5] << 8) | headerBuf[6];
+        uint16_t payloadLen = dataLen - 2;
+        
+        // Safely read payload data
+        for (uint16_t i = 0; i < payloadLen; i++) {
+          uint32_t byteTimeout = millis();
+          while (!serialPort_.available()) {
+            if ((millis() - byteTimeout) > 100) return ""; // Abort if no byte received within 100ms to prevent chip hang
+          }
+          uint8_t d = serialPort_.read();
+          if (dataIdx < sizeof(rawTemplate)) {
+            rawTemplate[dataIdx++] = d;
+          }
+        }
+        
+        // Read the last 2 Checksum bytes
+        uint8_t crcBuf[2];
+        serialPort_.readBytes(crcBuf, 2);
+        
+        if (pid == 0x08) done = true;
+      }
     }
   }
 
-  if (i < 534) {
-    Serial.printf("[Fingerprint] Timeout. Only read %d/534 bytes.\n", i);
-    return "";
-  }
+  if (dataIdx < 512) return "";
 
-  // 4. Bóc tách (Parse) để lấy 512 bytes dữ liệu nguyên chất
-  uint8_t rawTemplate[512];
-  
-  // Gói 1: Bỏ qua 9 bytes đầu, copy 256 bytes payload
-  memcpy(rawTemplate, bytesReceived + 9, 256);
-  // Gói 2: Bỏ qua (9 + 256 + 2) = 267 bytes của gói 1, cộng thêm 9 bytes header của gói 2
-  memcpy(rawTemplate + 256, bytesReceived + 267 + 9, 256);
-
-  // 5. Chuyển đổi mảng 512 bytes thành chuỗi Hex (1024 ký tự)
   String hexData = "";
   hexData.reserve(1024);
   for (int j = 0; j < 512; j++) {
     if (rawTemplate[j] < 0x10) hexData += "0";
     hexData += String(rawTemplate[j], HEX);
   }
-  
   hexData.toUpperCase();
-  Serial.println("[Fingerprint] Successfully extracted template to Hex.");
   return hexData;
 }
 
 bool FingerprintDriver::setTemplateFromHex(uint16_t id, const String& hexData) {
-  // 1. Kiểm tra tính hợp lệ của chuỗi đầu vào (phải chẵn 1024 ký tự tương đương 512 bytes)
-  if (hexData.length() != 1024) {
-    Serial.println("[Fingerprint] Invalid Hex length. Expected 1024 characters.");
-    return false;
-  }
+  if (hexData.length() != 1024) return false;
 
-  // 2. Ép kiểu chuỗi Hex về lại mảng 512 bytes
   uint8_t rawTemplate[512];
   for (int i = 0; i < 512; i++) {
     String byteStr = hexData.substring(i * 2, i * 2 + 2);
     rawTemplate[i] = (uint8_t)strtol(byteStr.c_str(), NULL, 16);
   }
 
-  // Xóa rác trong buffer Serial trước khi bắt đầu
   while (serialPort_.available()) serialPort_.read();
 
-  // 3. Gửi lệnh DownChar (0x09) vào CharBuffer 1 (0x01)
   uint8_t downCharCmd[] = {0xEF, 0x01, 0xFF, 0xFF, 0xFF, 0xFF, 0x01, 0x00, 0x04, 0x09, 0x01, 0x00, 0x0F};
   serialPort_.write(downCharCmd, sizeof(downCharCmd));
   delay(50);
-  
-  // Đọc ACK từ cảm biến (thường bỏ qua nội dung ACK để tối ưu tốc độ)
   while (serialPort_.available()) serialPort_.read();
 
-  // 4. Gửi Gói dữ liệu 1 (256 bytes đầu)
-  uint8_t packet1[267];
-  packet1[0] = 0xEF; packet1[1] = 0x01; // Header
-  packet1[2] = 0xFF; packet1[3] = 0xFF; packet1[4] = 0xFF; packet1[5] = 0xFF; // Address
-  packet1[6] = 0x02; // Packet ID: 0x02 (Data Packet thông thường)
-  packet1[7] = 0x01; packet1[8] = 0x02; // Length: 258 bytes (256 data + 2 checksum)
+  for (int p = 0; p < 4; p++) {
+    uint8_t packet[139];
+    packet[0] = 0xEF; packet[1] = 0x01;
+    packet[2] = 0xFF; packet[3] = 0xFF; packet[4] = 0xFF; packet[5] = 0xFF;
+    packet[6] = (p == 3) ? 0x08 : 0x02; 
+    packet[7] = 0x00; packet[8] = 0x82; // Length: 130 bytes
 
-  uint16_t checksum1 = packet1[6] + packet1[7] + packet1[8];
-  for (int i = 0; i < 256; i++) {
-    packet1[9 + i] = rawTemplate[i];
-    checksum1 += rawTemplate[i];
+    // FIX: Calculate checksum using standard byte-wise sum
+    uint16_t checksum = packet[6] + packet[7] + packet[8]; 
+    
+    for (int i = 0; i < 128; i++) {
+       uint8_t dataByte = rawTemplate[p * 128 + i];
+       packet[9 + i] = dataByte;
+       checksum += dataByte; // Safe byte accumulation
+    }
+    packet[137] = (checksum >> 8) & 0xFF;
+    packet[138] = checksum & 0xFF;
+
+    serialPort_.write(packet, sizeof(packet));
+    delay(60); // Increase to 60ms to let DSP safely process pagination
+    while (serialPort_.available()) serialPort_.read(); 
   }
-  packet1[265] = (checksum1 >> 8) & 0xFF; // Checksum High Byte
-  packet1[266] = checksum1 & 0xFF;        // Checksum Low Byte
 
-  serialPort_.write(packet1, sizeof(packet1));
-  delay(50);
-  while (serialPort_.available()) serialPort_.read();
-
-  // 5. Gửi Gói dữ liệu 2 (256 bytes cuối)
-  uint8_t packet2[267];
-  packet2[0] = 0xEF; packet2[1] = 0x01; 
-  packet2[2] = 0xFF; packet2[3] = 0xFF; packet2[4] = 0xFF; packet2[5] = 0xFF; 
-  packet2[6] = 0x08; // Packet ID: 0x08 (End Data Packet - Gói kết thúc)
-  packet2[7] = 0x01; packet2[8] = 0x02; 
-
-  uint16_t checksum2 = packet2[6] + packet2[7] + packet2[8];
-  for (int i = 0; i < 256; i++) {
-    packet2[9 + i] = rawTemplate[256 + i];
-    checksum2 += rawTemplate[256 + i];
-  }
-  packet2[265] = (checksum2 >> 8) & 0xFF;
-  packet2[266] = checksum2 & 0xFF;
-
-  serialPort_.write(packet2, sizeof(packet2));
-  delay(50);
-  while (serialPort_.available()) serialPort_.read();
-
-  // 6. Ra lệnh cho cảm biến ghi dữ liệu từ CharBuffer 1 xuống bộ nhớ Flash
   uint8_t storeResult = fingerprint_.storeModel(id);
   if (storeResult != FINGERPRINT_OK) {
-    Serial.println("[Fingerprint] Failed to store downloaded template to Flash.");
+    Serial.printf("[Fingerprint] Store failed with code: 0x%02X\n", storeResult);
     return false;
   }
-
-  Serial.printf("[Fingerprint] Successfully downloaded and stored template at ID #%d\n", id);
   return true;
 }
 }  // namespace tk::drivers

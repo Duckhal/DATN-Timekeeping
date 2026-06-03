@@ -134,12 +134,14 @@ void MqttService::handleMessage(char* topic, uint8_t* payload, unsigned int leng
   if (!topic || !payload || length == 0) {
     return;
   }
+
   DynamicJsonDocument doc(4096);
   const DeserializationError err = deserializeJson(doc, payload, length);
   if (err) {
     Serial.printf("[MQTT] Invalid JSON command: %s\n", err.c_str());
     return;
   }
+
   Serial.printf("[MQTT-DBG] post-parse: command='%s' has_eid=%d has_tpl=%d\n",
                 doc["command"] | "(missing)",
                 !doc["employee_id"].isNull(),
