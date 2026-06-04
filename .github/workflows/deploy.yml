@@ -22,5 +22,7 @@ jobs:
           export JWT_SECRET="${{ secrets.JWT_SECRET }}"
           export DEVICE_API_KEY="${{ secrets.DEVICE_API_KEY }}"
           
-          # Chạy Docker Compose up để cập nhật hệ thống
+          docker compose build
+          docker compose up -d postgres-db
+          docker compose run --rm backend npx prisma migrate deploy
           docker compose up -d --build
