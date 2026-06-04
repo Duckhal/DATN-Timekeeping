@@ -47,6 +47,9 @@ services:
     depends_on:
       - postgres-db
       - emqx-broker
+    volumes:
+      - /app/node_modules
+      - /app/dist
 
 volumes:
   postgres_data:
