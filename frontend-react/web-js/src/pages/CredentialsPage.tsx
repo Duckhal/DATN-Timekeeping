@@ -304,7 +304,7 @@ export function CredentialsPage() {
       return (
         <TableRow key={employee.employee_id} hover>
           <TableCell>{employee.employee_id}</TableCell>
-          <TableCell fontWeight={500}>{employee.full_name}</TableCell>
+          <TableCell sx={{ fontWeight: 500 }}>{employee.full_name}</TableCell>
           <TableCell>{employee.email}</TableCell>
           
           {/* Fingerprint Status */}
