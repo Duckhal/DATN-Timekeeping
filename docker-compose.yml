@@ -10,7 +10,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: "${DB_PASSWORD}"
       POSTGRES_DB: timekeeping
-      - TZ=Asia/Ho_Chi_Minh
+      TZ: Asia/Ho_Chi_Minh
     volumes:
       - postgres_data:/var/lib/postgresql
     ports:
