@@ -14,7 +14,7 @@ class RfidDriver {
  public:
   RfidDriver(uint8_t sck, uint8_t miso, uint8_t mosi, uint8_t ss, uint8_t rst);
 
-  void begin();
+  bool begin();
   bool readUidHex(String& outUid);
   bool isCardPresent();
 

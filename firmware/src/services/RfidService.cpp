@@ -18,8 +18,8 @@ RfidService::RfidService(drivers::RfidDriver& rfid,
       state_(State::IDLE),
       resultShownAtMs_(0) {}
 
-void RfidService::begin() {
-  rfid_.begin();
+bool RfidService::begin() {
+  return rfid_.begin();
 }
 
 void RfidService::tick(const models::DeviceConfig& config,

@@ -16,7 +16,7 @@ class RfidService {
               NetworkService& network,
               drivers::BuzzerDriver& buzzer);
 
-  void begin();
+  bool begin();
   void tick(const models::DeviceConfig& config,
             const String& apiKey,
             bool allowed);

@@ -10,16 +10,20 @@ RfidDriver::RfidDriver(uint8_t sck, uint8_t miso, uint8_t mosi, uint8_t ss, uint
       rst_(rst),
       rfid_(ss, rst) {}
 
-void RfidDriver::begin() {
+bool RfidDriver::begin() {
   SPI.begin(sck_, miso_, mosi_, ss_);
   rfid_.PCD_Init();
   delay(20);
 
   const byte version = rfid_.PCD_ReadRegister(rfid_.VersionReg);
   Serial.printf("[RFID] RC522 firmware=0x%02X\n", version);
+  
   if (version == 0x00 || version == 0xFF) {
     Serial.println("[RFID] RC522 not detected. Check power and wiring.");
+    return false;
   }
+  
+  return true;
 }
 
 bool RfidDriver::readUidHex(String& outUid) {

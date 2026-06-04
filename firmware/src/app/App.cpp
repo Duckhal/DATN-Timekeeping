@@ -51,8 +51,13 @@ void App::begin() {
   }
   delay(150);
 
-  rfidService_.begin();
-  displayService_.showBootLog("RFID Module... OK", 80, ST77XX_GREEN);
+  displayService_.showBootLog("RFID Module... Connecting", 80, ST77XX_WHITE);
+  bool rfidVerified = rfidService_.begin(); 
+  if (rfidVerified) {
+    displayService_.showBootLog("RFID Module... OK", 80, ST77XX_GREEN);
+  } else {
+    displayService_.showBootLog("RFID Module... FAILED", 80, ST77XX_RED);
+  }
   delay(150);
 
   if (!configService_.begin()) {
@@ -94,6 +99,7 @@ void App::begin() {
   delay(150);
 
   displayService_.showBootLog("Connecting to server...", 170, ST77XX_WHITE);
+  delay(1500);
   services::DeviceRegistrationService::TickResult regResult = 
       registrationService_.runNow(currentConfig_, config::network::kDeviceApiKey);
   if (registrationService_.state() == services::DeviceRegistrationService::State::SUCCESS) {
