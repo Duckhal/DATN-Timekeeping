@@ -89,19 +89,19 @@ void App::begin() {
     displayService_.showBootLog("MQTT... OK", 140, ST77XX_GREEN);
   } else {
     displayService_.showBootLog("MQTT... FAILED", 140, ST77XX_RED);
+    Serial.println("[MQTT] Connection failed during boot. Will retry in tick().");
   }
   delay(150);
 
-  displayService_.showBootLog("Server... Connecting", 170, ST77XX_WHITE);
+  displayService_.showBootLog("Connecting to server...", 170, ST77XX_WHITE);
   services::DeviceRegistrationService::TickResult regResult = 
       registrationService_.runNow(currentConfig_, config::network::kDeviceApiKey);
   if (registrationService_.state() == services::DeviceRegistrationService::State::SUCCESS) {
-    displayService_.showBootLog("Server... OK", 170, ST77XX_GREEN);
     registrationService_.showCurrentHomeScreen();
   } else {
-    displayService_.showBootLog("Server... FAILED", 170, ST77XX_RED);
+    Serial.println("[App] Server registration failed. Entering non-blocking retry loop.");
+    displayService_.showServerConnectionFailed(0); 
   }
-  delay(150);
 
   handleRegistrationResult(regResult);
 }
@@ -178,6 +178,28 @@ if (isPortalMode_) {
                                config::network::kMqttPort,
                                config::timing::kMqttReconnectIntervalMs);
   mqttService_.loop();
+
+  if (networkService_.wifiStatus() == WL_CONNECTED && 
+      registrationService_.state() == services::DeviceRegistrationService::State::FAILED) {
+      
+    static uint32_t lastServerRetryMs = 0;
+    // Retry server registration every 15 seconds in case of transient issues, but only if Wi-Fi is connected to avoid futile attempts.
+    if (millis() - lastServerRetryMs >= 15000) { 
+      lastServerRetryMs = millis();
+      Serial.println("[Server-Recovery] Background retrying server registration...");
+      
+      // Run registration attempt immediately
+      services::DeviceRegistrationService::TickResult retryRes = 
+          registrationService_.runNow(currentConfig_, config::network::kDeviceApiKey);
+          
+      if (registrationService_.state() == services::DeviceRegistrationService::State::SUCCESS) {
+        Serial.println("[Server-Recovery] Connection restored successfully!");
+        registrationService_.showCurrentHomeScreen();
+      }
+      
+      handleRegistrationResult(retryRes);
+    }
+  }
 
   {
     models::RemoteDeviceStatus mqttStatus;
