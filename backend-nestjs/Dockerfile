@@ -24,4 +24,4 @@ RUN ls -la /app/dist
 EXPOSE 3000
 
 # SỬA DÒNG NÀY: Bỏ prisma migrate deploy, chạy trực tiếp file main bằng node
-CMD ["node", "dist/main.js"]
+CMD ["node", "dist/src/main.js"]
