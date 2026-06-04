@@ -88,9 +88,6 @@ export function ApprovalsPage() {
           <Typography variant="h5" fontWeight={700}>Approvals</Typography>
           <Typography variant="body2" color="text.secondary">Pending requests from employees</Typography>
         </Box>
-        <Button variant="outlined" size="small" onClick={() => navigate('/portal')}>
-          Back to Portal
-        </Button>
       </Stack>
 
       <TableContainer component={Paper}>

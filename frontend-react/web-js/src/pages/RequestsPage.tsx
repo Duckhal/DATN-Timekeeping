@@ -153,9 +153,6 @@ export function RequestsPage() {
           <Typography variant="body2" color="text.secondary">OT and Explanation requests</Typography>
         </Box>
         <Stack direction="row" spacing={1}>
-          <Button variant="outlined" size="small" onClick={() => navigate('/portal')}>
-            Back to Portal
-          </Button>
           {tab === 0 ? (
             <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => setOtOpen(true)}>
               New OT Request

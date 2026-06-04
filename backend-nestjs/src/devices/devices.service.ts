@@ -52,7 +52,9 @@ export class DevicesService {
 
     const updated = await this.prisma.device.update({
       where: { device_id: existing.device_id },
-      data: { name },
+      data: {
+        name: existing.name ? existing.name : name,
+      },
     });
 
     return this.toHeartbeatResponse(updated);

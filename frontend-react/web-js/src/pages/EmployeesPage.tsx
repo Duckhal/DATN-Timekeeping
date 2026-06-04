@@ -127,9 +127,6 @@ export function EmployeesPage() {
           </Typography>
         </Box>
         <Stack direction="row" spacing={1}>
-          <Button variant="outlined" size="small" onClick={() => navigate('/portal')}>
-            Back to Portal
-          </Button>
           <Button
             variant="contained"
             startIcon={<AddRoundedIcon />}
