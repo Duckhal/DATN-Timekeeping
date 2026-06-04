@@ -12,12 +12,14 @@ class DisplayService {
 
   void begin();
 
+  void showBootLog(const String& message, uint16_t yOffset, uint16_t color);
   void showNotConnected(const String& apSsid, const String& portalIp);
   void showServerConnectionFailed(int httpStatusCode);
   void showConnectedSuccessfully();
   void showInactiveMode();
   void showMaintenanceMode();
   void showNotifyingServer();
+  void showAutoWifiRecoveryAttempt();
   void showDeviceDeletedFactoryResetting();
   void showEnrollModePlaceFinger();
   void showEnrollModeRemoveFinger();

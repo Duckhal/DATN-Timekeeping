@@ -15,6 +15,7 @@ void TftDriver::begin(uint16_t width, uint16_t height) {
   hspi_.begin(sclkPin_, -1, mosiPin_, csPin_);
   tft_.init(width, height);
   tft_.setRotation(1);
+  tft_.invertDisplay(false);
   tft_.fillScreen(ST77XX_BLACK);
 }
 
@@ -36,5 +37,20 @@ void TftDriver::drawCenteredText(const String& text, int16_t y, uint16_t color,
   const int16_t x = static_cast<int16_t>((tft_.width() - w) / 2);
   tft_.setCursor(x, y);
   tft_.print(text);
+}
+
+void TftDriver::drawLeftAlignedLog(const String& text, int16_t y, uint16_t color, uint8_t textSize) {
+  tft_.setTextSize(textSize);
+
+   // Clear the line first
+   int16_t x1, y1;
+   uint16_t w, h;
+   tft_.getTextBounds("A", 0, 0, &x1, &y1, &w, &h);
+   tft_.fillRect(0, y, tft_.width(), h + 4, ST77XX_BLACK);
+
+   // Draw the new text
+   tft_.setTextColor(color);
+   tft_.setCursor(15, y);
+   tft_.print(text);
 }
 }  // namespace tk::drivers

@@ -34,11 +34,26 @@ void App::begin() {
   Serial.begin(115200);
   delay(300);
 
-  bootButtonDriver_.begin();
   displayService_.begin();
+  Serial.println("[App] Starting ordered boot process...");
+
+  bootButtonDriver_.begin();
   buzzerDriver_.begin();
-  mqttService_.begin();
+  displayService_.showBootLog("System Drivers... OK", 20, ST77XX_GREEN);
+  delay(150); 
+
+  displayService_.showBootLog("Fingerprint... Connecting", 50, ST77XX_WHITE);
+  bool fingerVerified = enrollmentService_.initSensor(true, config::timing::kFingerprintRetryIntervalMs);
+  if (fingerVerified) {
+    displayService_.showBootLog("Fingerprint... OK", 50, ST77XX_GREEN);
+  } else {
+    displayService_.showBootLog("Fingerprint... FAILED", 50, ST77XX_RED);
+  }
+  delay(150);
+
   rfidService_.begin();
+  displayService_.showBootLog("RFID Module... OK", 80, ST77XX_GREEN);
+  delay(150);
 
   if (!configService_.begin()) {
     Serial.println("[Config] Preferences init failed. Entering portal mode.");
@@ -53,28 +68,42 @@ void App::begin() {
     return;
   }
 
-  Serial.printf("[WiFi] Connecting to SSID=%s\n", currentConfig_.ssid.c_str());
-  const bool connected =
-      networkService_.connectStation(currentConfig_, config::timing::kWifiConnectTimeoutMs);
-
+  displayService_.showBootLog("Wi-Fi... Connecting", 110, ST77XX_WHITE);
+  const bool connected = networkService_.connectStation(currentConfig_, config::timing::kWifiConnectTimeoutMs);
   if (!connected) {
-    Serial.println("[WiFi] Failed to connect within timeout.");
+    displayService_.showBootLog("Wi-Fi... FAILED", 110, ST77XX_RED);
+    delay(1000);
     enterPortalMode();
     return;
   }
+  displayService_.showBootLog("Wi-Fi... OK", 110, ST77XX_GREEN);
+  delay(150);
 
-  Serial.println("[WiFi] Connected successfully.");
-  Serial.printf("[WiFi] IP Address: %s\n", networkService_.localIpAddress().c_str());
-  Serial.printf("[WiFi] MAC Address: %s\n", networkService_.macAddress().c_str());
-
-  enrollmentService_.initSensor(true, config::timing::kFingerprintRetryIntervalMs);
-
+  mqttService_.begin();
+  displayService_.showBootLog("MQTT... Connecting", 140, ST77XX_WHITE);
   mqttService_.connectIfNeeded(currentConfig_.serverIp, networkService_.macAddress(),
                                config::network::kMqttPort,
                                config::timing::kMqttReconnectIntervalMs);
+                               
+  if (mqttService_.connected()) {
+    displayService_.showBootLog("MQTT... OK", 140, ST77XX_GREEN);
+  } else {
+    displayService_.showBootLog("MQTT... FAILED", 140, ST77XX_RED);
+  }
+  delay(150);
 
-  handleRegistrationResult(
-      registrationService_.runNow(currentConfig_, config::network::kDeviceApiKey));
+  displayService_.showBootLog("Server... Connecting", 170, ST77XX_WHITE);
+  services::DeviceRegistrationService::TickResult regResult = 
+      registrationService_.runNow(currentConfig_, config::network::kDeviceApiKey);
+  if (registrationService_.state() == services::DeviceRegistrationService::State::SUCCESS) {
+    displayService_.showBootLog("Server... OK", 170, ST77XX_GREEN);
+    registrationService_.showCurrentHomeScreen();
+  } else {
+    displayService_.showBootLog("Server... FAILED", 170, ST77XX_RED);
+  }
+  delay(150);
+
+  handleRegistrationResult(regResult);
 }
 
 void App::tick() {
@@ -86,11 +115,41 @@ void App::tick() {
     return;
   }
 
-  if (isPortalMode_) {
+if (isPortalMode_) {
     portalDriver_.handleClient();
 
     if (shouldRestartAfterSave_ && millis() - restartScheduledAtMs_ >= 800) {
       ESP.restart();
+    }
+
+    // In Portal mode, periodically check if the saved Wi-Fi SSID is available again to allow auto-recovery without user intervention.
+    static uint32_t lastPortalWifiCheckMs = 0;
+    if (millis() - lastPortalWifiCheckMs >= config::timing::kPortalRetryWifiIntervalMs) {
+      lastPortalWifiCheckMs = millis();
+      Serial.println("[Portal-Recovery] Background scanning for old Wi-Fi SSID...");
+      
+      // Scan for Wi-Fi networks to see if the saved SSID is available again
+      int n = WiFi.scanNetworks();
+      bool foundOldWifi = false;
+      
+      for (int i = 0; i < n; ++i) {
+        if (WiFi.SSID(i) == currentConfig_.ssid) {
+          foundOldWifi = true;
+          break;
+        }
+      }
+      
+      // Release memory used by Wi-Fi scan
+      WiFi.scanDelete();
+
+      if (foundOldWifi) {
+        Serial.printf("[Portal-Recovery] Detected saved SSID: %s. Rebooting to reconnect...\n", currentConfig_.ssid.c_str());
+        displayService_.showAutoWifiRecoveryAttempt(); // Show message before rebooting to indicate recovery attempt
+        delay(500);
+        ESP.restart(); // Restart for auto-recovery to attempt Wi-Fi connection with saved credentials
+      } else {
+        Serial.println("[Portal-Recovery] Saved SSID not found yet. Staying in Portal mode.");
+      }
     }
 
     delay(20);

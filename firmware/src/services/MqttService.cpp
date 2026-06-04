@@ -25,6 +25,10 @@ void MqttService::begin() {
   driver_.setCallback(onRawMessage);
 }
 
+bool MqttService::connected() {
+  return driver_.connected();
+}
+
 bool MqttService::connectIfNeeded(const String& brokerHost, const String& macAddress,
                                   uint16_t brokerPort, uint32_t reconnectIntervalMs) {
   if (driver_.connected()) {

@@ -12,6 +12,10 @@ void DisplayService::begin() {
   display_.begin(240, 320);
 }
 
+void DisplayService::showBootLog(const String& message, uint16_t yOffset, uint16_t color) {
+  display_.drawLeftAlignedLog(message, yOffset, color, 2);
+}
+
 void DisplayService::showNotConnected(const String& apSsid, const String& portalIp) {
   display_.clear(ST77XX_BLACK);
   display_.drawCenteredText("Device not connected.", 20, ST77XX_WHITE, 2);
@@ -55,6 +59,11 @@ void DisplayService::showMaintenanceMode() {
 void DisplayService::showNotifyingServer() {
   display_.clear(ST77XX_BLACK);
   display_.drawCenteredText("Notifying Server...", 106, ST77XX_YELLOW, 2);
+}
+
+void DisplayService::showAutoWifiRecoveryAttempt() {
+  display_.clear(ST77XX_BLACK);
+  display_.drawCenteredText("Attempting Wi-Fi Recovery...", 90, ST77XX_YELLOW, 2);
 }
 
 void DisplayService::showDeviceDeletedFactoryResetting() {

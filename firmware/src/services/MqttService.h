@@ -11,6 +11,7 @@ class MqttService {
   explicit MqttService(drivers::MqttClientDriver& driver);
 
   void begin();
+  bool connected();
   bool connectIfNeeded(const String& brokerHost, const String& macAddress,
                        uint16_t brokerPort, uint32_t reconnectIntervalMs);
   void loop();

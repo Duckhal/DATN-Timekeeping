@@ -4,7 +4,7 @@
 
 namespace tk::config {
 namespace gpio {
-constexpr uint8_t kBootButtonPin = 0;
+constexpr uint8_t kBootButtonPin = 32;
 constexpr uint8_t kFingerprintRx = 16;
 constexpr uint8_t kFingerprintTx = 17;
 
@@ -37,12 +37,13 @@ constexpr uint8_t kSyncMappingMaxAttempts = 3;
 constexpr uint32_t kBulkSyncPageDelayMs = 500;
 constexpr uint32_t kBulkSyncHttpTimeoutMs = 10000;
 constexpr uint8_t kBulkSyncMaxRetries = 3;
+constexpr uint32_t kPortalRetryWifiIntervalMs = 60000;
 }  // namespace timing
 
 namespace network {
 constexpr const char* kDefaultSsid = "GalaxyA53";
 constexpr const char* kDefaultPassword = "oysl4029";
-constexpr const char* kDefaultServerIp = "192.168.116.16";
+constexpr const char* kDefaultServerIp = "192.168.19.16";
 constexpr const char* kDefaultDeviceName = "ESP32-Timekeeping-Device";
 constexpr uint16_t kDefaultServerPort = 3000;
 constexpr uint16_t kMqttPort = 1883;
