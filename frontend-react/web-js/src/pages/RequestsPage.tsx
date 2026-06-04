@@ -27,7 +27,6 @@ import {
   Typography,
 } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
-import { useNavigate } from 'react-router-dom'
 import {
   createExplanationRequest,
   createOtRequest,
@@ -44,7 +43,6 @@ const STATUS_COLOR: Record<string, 'warning' | 'success' | 'error' | 'default'> 
 }
 
 export function RequestsPage() {
-  const navigate = useNavigate()
   const { profile } = useAuth()
   const managerName = profile?.manager?.email?.split('@')[0] ?? '—'
   const [tab, setTab] = useState<0 | 1>(0)

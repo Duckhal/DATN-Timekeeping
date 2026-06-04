@@ -23,7 +23,6 @@ import {
 } from '@mui/material'
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded'
 import CancelRoundedIcon from '@mui/icons-material/CancelRounded'
-import { useNavigate } from 'react-router-dom'
 import { approveRequest, getPendingRequests, rejectRequest } from '../apis/requestService'
 import type { RequestItem } from '../types/request'
 
@@ -33,7 +32,6 @@ const TYPE_COLOR: Record<string, 'info' | 'secondary' | 'default'> = {
 }
 
 export function ApprovalsPage() {
-  const navigate = useNavigate()
   const [requests, setRequests] = useState<RequestItem[]>([])
   const [loading, setLoading] = useState(true)
   const [snack, setSnack] = useState<{ message: string; severity: 'success' | 'error' } | null>(null)

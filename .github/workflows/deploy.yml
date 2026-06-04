@@ -1,0 +1,26 @@
+name: Deploy Backend to Droplet
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend-nestjs/**'
+      - 'docker-compose.yml'
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Deploy services with Docker Compose
+        run: |
+          export DB_PASSWORD="${{ secrets.DB_PASSWORD }}"
+          export JWT_SECRET="${{ secrets.JWT_SECRET }}"
+          export DEVICE_API_KEY="${{ secrets.DEVICE_API_KEY }}"
+          
+          # Chạy Docker Compose up để cập nhật hệ thống
+          docker compose up -d --build

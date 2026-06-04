@@ -25,7 +25,6 @@ import {
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import LockResetRoundedIcon from '@mui/icons-material/LockResetRounded'
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded'
-import { useNavigate } from 'react-router-dom'
 import {
   createEmployee,
   getAllEmployees,
@@ -35,7 +34,6 @@ import { useAuth } from '../hooks/useAuth'
 import type { Employee } from '../types/auth'
 
 export function EmployeesPage() {
-  const navigate = useNavigate()
   const { profile } = useAuth()
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)

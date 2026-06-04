@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  # A. PostgreSQL
+  postgres-db:
+    image: postgres:18-alpine
+    container_name: timekeeping-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      POSTGRES_DB: timekeeping
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  # B. EMQX Broker (MQTT)
+  emqx-broker:
+    image: emqx/emqx:latest
+    container_name: timekeeping-emqx
+    restart: always
+    ports:
+      - "1883:1883"
+      - "8083:8083"
+      - "18083:18083" 
+    volumes:
+      - emqx_data:/opt/emqx/data
+      - emqx_log:/opt/emqx/log
+
+  # C. Backend NestJS
+  backend:
+    build:
+      context: ./backend-nestjs
+      dockerfile: Dockerfile
+    container_name: timekeeping-backend
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - DATABASE_URL=postgresql://postgres:${DB_PASSWORD}@postgres-db:5432/timekeeping?schema=public
+      - MQTT_BROKER_URL=mqtt://emqx-broker:1883
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=1h
+      - DEVICE_API_KEY=${DEVICE_API_KEY}
+    depends_on:
+      - postgres-db
+      - emqx-broker
+
+volumes:
+  postgres_data:
+  emqx_data:
+  emqx_log:
