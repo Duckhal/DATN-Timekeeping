@@ -1,3 +1,4 @@
+// src/pages/CredentialsPage.tsx
 import { useEffect, useMemo, useState } from 'react'
 import type { AxiosError } from 'axios'
 import {
@@ -24,6 +25,8 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
+  IconButton,
   Typography,
 } from '@mui/material'
 import {
@@ -31,6 +34,8 @@ import {
   Cancel as CancelIcon,
   DeleteOutline as DeleteIcon,
 } from '@mui/icons-material'
+import ChevronLeftRoundedIcon from '@mui/icons-material/ChevronLeftRounded'
+import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded'
 import {
   attachRfidCard,
   getActiveDevices,
@@ -38,6 +43,7 @@ import {
   removeCredential,
   startFingerprintEnroll,
 } from '../apis/credentialsService'
+import { SearchInput } from '../components/utils/SearchInput' // Embedded reusable SearchInput module
 import type { UnassignedCredentialEmployee } from '../types/credentials'
 import type { Device } from '../types/device'
 
@@ -55,7 +61,6 @@ type EnrollState = {
   hasStarted: boolean
 }
 
-// Cấu trúc State cho Dialog xác nhận xóa
 type RemoveConfirmState = {
   open: boolean
   employee: UnassignedCredentialEmployee | null
@@ -101,6 +106,12 @@ export function CredentialsPage() {
   const [employees, setEmployees] = useState<UnassignedCredentialEmployee[]>([])
   const [activeDevices, setActiveDevices] = useState<Device[]>([])
 
+  // 1. Added Search and Pagination States Configured for Server-side Filtering
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(10)
+  const [totalPages, setTotalPages] = useState(1)
+
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmittingRfid, setIsSubmittingRfid] = useState(false)
   const [isRemovingCredential, setIsRemovingCredential] = useState(false)
@@ -112,18 +123,18 @@ export function CredentialsPage() {
 
   const [enroll, setEnroll] = useState<EnrollState>(DEFAULT_ENROLL)
   const [snackbar, setSnackbar] = useState<SnackbarState>(DEFAULT_SNACKBAR)
-  
-  // Khởi tạo state quản lý việc xác nhận xóa
   const [removeConfirm, setRemoveConfirm] = useState<RemoveConfirmState>(DEFAULT_REMOVE_CONFIRM)
 
-  const loadPageData = async () => {
+  // 2. Core API Fetching Engine Passing Safe Isolated Realtime Parameters
+  const loadPageData = async (currentPage: number, currentLimit: number, currentSearch: string) => {
     try {
       setIsLoading(true)
       const [employeeData, deviceData] = await Promise.all([
-        getUnassignedCredentialEmployees(),
+        getUnassignedCredentialEmployees(currentPage, currentLimit, currentSearch),
         getActiveDevices(),
       ])
-      setEmployees(employeeData)
+      setEmployees(employeeData.items) // Unwrapped paginated object list array
+      setTotalPages(employeeData.meta.totalPages || 1)
       setActiveDevices(deviceData.filter((item) => item.status === 'ACTIVE'))
     } catch (error) {
       setSnackbar({
@@ -136,9 +147,18 @@ export function CredentialsPage() {
     }
   }
 
+  // Reactive listener dispatching clean non-blocking network handshakes
   useEffect(() => {
-    void loadPageData()
-  }, [])
+    void loadPageData(page, limit, search)
+  }, [page, limit, search])
+
+  // Prevent unexpected jump reset unless absolute key difference is confirmed
+  const handleSearchSubmit = (value: string) => {
+    if (value.trim() !== search.trim()) {
+      setSearch(value)
+      setPage(1)
+    }
+  }
 
   const openAttachRfidDialog = (employee: UnassignedCredentialEmployee) => {
     setRfidEmployee(employee)
@@ -161,7 +181,7 @@ export function CredentialsPage() {
       setRfidConflictMessage('')
       await attachRfidCard(rfidEmployee.employee_id, { rfid_tag: normalizedTag })
       setRfidDialogOpen(false)
-      await loadPageData()
+      await loadPageData(page, limit, search)
       setSnackbar({
         open: true,
         severity: 'success',
@@ -179,7 +199,6 @@ export function CredentialsPage() {
     }
   }
 
-  // Mở hộp thoại trung gian yêu cầu xác nhận trước khi xóa
   const triggerRemoveConfirmation = (
     employee: UnassignedCredentialEmployee,
     type: 'RFID' | 'FINGERPRINT'
@@ -191,16 +210,15 @@ export function CredentialsPage() {
     })
   }
 
-  // Hàm thực thi xóa thật sự sau khi HR đã ấn đồng ý ở Dialog xác nhận
   const handleExecuteRemove = async () => {
     const { employee, type } = removeConfirm
     if (!employee || !type) return
 
     try {
       setIsRemovingCredential(true)
-      setRemoveConfirm(DEFAULT_REMOVE_CONFIRM) // Đóng ngay hộp thoại
+      setRemoveConfirm(DEFAULT_REMOVE_CONFIRM)
       await removeCredential(employee.employee_id, type)
-      await loadPageData()
+      await loadPageData(page, limit, search)
 
       const message =
         type === 'RFID'
@@ -267,7 +285,7 @@ export function CredentialsPage() {
 
   const handleRefreshAfterEnroll = async () => {
     closeEnrollDialog()
-    await loadPageData()
+    await loadPageData(page, limit, search)
   }
 
   const rows = useMemo(() => {
@@ -304,41 +322,43 @@ export function CredentialsPage() {
       return (
         <TableRow key={employee.employee_id} hover>
           <TableCell>{employee.employee_id}</TableCell>
-          <TableCell sx={{ fontWeight: 500 }}>{employee.full_name}</TableCell>
+          
+          <TableCell sx={{ fontWeight: 500, whiteSpace: 'nowrap' }}>
+            {employee.full_name}
+          </TableCell>
+          
           <TableCell>{employee.email}</TableCell>
           
-          {/* Fingerprint Status */}
           <TableCell align="center">
             {hasFingerprint ? (
-              <CheckIcon color="success" fontSize="small" titleAccess="Registered" />
+              <CheckIcon color="success" fontSize="small" />
             ) : (
-              <CancelIcon color="error" fontSize="small" titleAccess="Not Registered" />
+              <CancelIcon color="error" fontSize="small" />
             )}
           </TableCell>
 
-          {/* RFID Status and Tag Display */}
           <TableCell>
             <Stack direction="row" spacing={1} alignItems="center">
               {hasRfid ? (
                 <>
                   <CheckIcon color="success" fontSize="small" />
-                  <Typography variant="body2" fontFamily="monospace" sx={{ bgcolor: 'action.hover', px: 1, py: 0.2, borderRadius: 1 }}>
+                  <Typography variant="body2" fontFamily="monospace" sx={{ bgcolor: 'action.hover', px: 1, py: 0.2, borderRadius: 1, whiteSpace: 'nowrap' }}>
                     {employee.rfid_tag}
                   </Typography>
                 </>
               ) : (
                 <>
                   <CancelIcon color="error" fontSize="small" />
-                  <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>No card</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', whiteSpace: 'nowrap' }}>
+                    No card
+                  </Typography>
                 </>
               )}
             </Stack>
           </TableCell>
 
-          {/* SỬA ĐỔI: Chuyển align thành center và dùng justifyContent="center" để căn giữa tuyệt đối */}
-          <TableCell align="center">
+          <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>
             <Stack direction="row" spacing={1} justifyContent="center" alignItems="center">
-              {/* RFID Actions Group */}
               <Box sx={{ borderRight: '1px solid', borderColor: 'divider', pr: 1, display: 'flex', gap: 1, alignItems: 'center' }}>
                 <Button 
                   size="small" 
@@ -359,15 +379,21 @@ export function CredentialsPage() {
                 </Button>
               </Box>
 
-              {/* Fingerprint Actions Group */}
               <Stack direction="row" spacing={1} alignItems="center" sx={{ pl: 0.5 }}>
                 <Button 
                   size="small" 
                   variant={hasFingerprint ? "outlined" : "contained"} 
                   onClick={() => openEnrollDialog(employee)}
-                  sx={{ minWidth: '140px' }}
+                  disabled={hasFingerprint}
+                  sx={{ 
+                    minWidth: '140px',
+                    "&.Mui-disabled": {
+                      bgcolor: 'action.disabledBackground',
+                      color: 'action.disabled'
+                    }
+                  }}
                 >
-                  {hasFingerprint ? 'Re-register Finger' : 'Register Finger'}
+                  {hasFingerprint ? 'Registered' : 'Register Finger'}
                 </Button>
                 <Button
                   size="small"
@@ -398,17 +424,25 @@ export function CredentialsPage() {
           </Typography>
         </Box>
 
+        {/* 3. Rendered custom search bar container directly above the data layout container */}
+        <Box sx={{ mt: 1 }}>
+          <SearchInput 
+            placeholder="Search by name, email or RFID..." 
+            onSearch={handleSearchSubmit} 
+          />
+        </Box>
+
         <Paper sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, overflow: 'hidden' }}>
           <TableContainer>
             <Table>
               <TableHead sx={{ bgcolor: 'action.hover' }}>
                 <TableRow>
-                  <TableCell width="60px">ID</TableCell>
-                  <TableCell>Full Name</TableCell>
-                  <TableCell>Email</TableCell>
-                  <TableCell align="center" width="120px">Fingerprint</TableCell>
-                  <TableCell width="220px">RFID Status</TableCell>
-                  <TableCell align="center" width="450px">Actions</TableCell> 
+                  <TableCell width="8%">ID</TableCell>
+                  <TableCell width="22%">Full Name</TableCell>
+                  <TableCell width="25%">Email</TableCell>
+                  <TableCell align="center" width="12%">Fingerprint</TableCell>
+                  <TableCell width="13%">RFID Status</TableCell>
+                  <TableCell align="center" width="20%" sx={{ whiteSpace: 'nowrap' }}>Actions</TableCell> 
                 </TableRow>
               </TableHead>
               <TableBody>{rows}</TableBody>
@@ -416,6 +450,64 @@ export function CredentialsPage() {
           </TableContainer>
         </Paper>
       </Stack>
+
+      {/* 4. Custom Pagination Component integration mapped directly below the paper grid */}
+      {!isLoading && employees.length > 0 && (
+        <Stack 
+          direction="row" 
+          justifyContent="space-between" 
+          alignItems="center" 
+          sx={{ mt: 2, px: 1 }}
+        >
+          <Stack direction="row" alignItems="center" spacing={1.5}>
+            <IconButton
+              size="small"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(p - 1, 1))}
+              sx={{ border: '1px solid', borderColor: 'divider' }}
+            >
+              <ChevronLeftRoundedIcon fontSize="small" />
+            </IconButton>
+            
+            <Typography variant="body2" fontWeight={500} color="text.primary">
+              Page {page} of {totalPages}
+            </Typography>
+
+            <IconButton
+              size="small"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
+              sx={{ border: '1px solid', borderColor: 'divider' }}
+            >
+              <ChevronRightRoundedIcon fontSize="small" />
+            </IconButton>
+          </Stack>
+
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <Typography variant="body2" color="text.secondary">
+              Rows per page:
+            </Typography>
+            <Select
+              value={limit}
+              onChange={(e) => {
+                setLimit(Number(e.target.value))
+                setPage(1)
+              }}
+              size="small"
+              sx={{ 
+                height: 32, 
+                borderRadius: '6px',
+                '& .MuiSelect-select': { py: 0.5, fontSize: '0.875rem' } 
+              }}
+            >
+              <MenuItem value={1}>1</MenuItem>
+              <MenuItem value={10}>10</MenuItem>
+              <MenuItem value={20}>20</MenuItem>
+              <MenuItem value={50}>50</MenuItem>
+            </Select>
+          </Stack>
+        </Stack>
+      )}
 
       {/* Dialog Attach/Edit RFID */}
       <Dialog open={rfidDialogOpen} onClose={() => setRfidDialogOpen(false)} fullWidth maxWidth="sm">
@@ -488,17 +580,40 @@ export function CredentialsPage() {
             ) : null}
 
             {enroll.hasStarted ? (
-              <Stack spacing={1.5}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <CircularProgress size={20} />
-                  <Typography variant="body2">
-                    Please ask the staff to place their finger on the hardware scanner. The device saves automatically.
+              <Stack spacing={2}>
+                <Box 
+                  sx={{ 
+                    display: 'flex', 
+                    flexDirection: 'column',
+                    gap: 1, 
+                    bgcolor: 'rgba(76, 77, 220, 0.05)',
+                    p: 2, 
+                    borderRadius: '8px',
+                    border: '1px dashed',
+                    borderColor: 'primary.main'
+                  }}
+                >
+                  <Typography variant="subtitle2" color="primary.main" fontWeight={650}>
+                    ENROLLMENT COMMAND SENT TO DEVICE
+                  </Typography>
+                  <Typography variant="body2" color="text.primary" sx={{ lineHeight: 1.5 }}>
+                    1. Please ask the staff to place their finger on the hardware scanner <strong>3 times consecutively</strong>.
+                    <br />
+                    2. Once the device emits a <strong>SUCCESS BEEP</strong> (or flashes a green light), click the button below to update the credentials list.
                   </Typography>
                 </Box>
+
                 <Button
                   variant="contained"
                   color="success"
                   onClick={() => void handleRefreshAfterEnroll()}
+                  fullWidth
+                  sx={{ 
+                    py: 1, 
+                    fontWeight: 600,
+                    boxShadow: '0 4px 12px rgba(46, 125, 50, 0.2)',
+                    '&:hover': { bgcolor: 'success.dark' }
+                  }}
                 >
                   Done - Refresh list
                 </Button>
@@ -513,7 +628,7 @@ export function CredentialsPage() {
         </DialogActions>
       </Dialog>
 
-      {/* BỔ SUNG: Hộp thoại xác nhận hủy bỏ phương thức xác thực (Remove Confirmation) */}
+      {/* Revocation Confirmation Dialog */}
       <Dialog
         open={removeConfirm.open}
         onClose={() => setRemoveConfirm(DEFAULT_REMOVE_CONFIRM)}

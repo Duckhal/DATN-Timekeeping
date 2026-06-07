@@ -7,17 +7,44 @@ import type {
 } from '../types/credentials'
 import type { Device } from '../types/device'
 
-export async function getUnassignedCredentialEmployees(): Promise<UnassignedCredentialEmployee[]> {
-  const response = await apiClient.get<UnassignedCredentialEmployee[]>('/employees/unassigned-credentials')
+// 1. Defined the safe pagination wrapper mapping the backend metadata scheme
+export interface PaginatedCredentials {
+  items: UnassignedCredentialEmployee[]
+  meta: {
+    total: number
+    page: number
+    limit: number
+    totalPages: number
+  }
+}
+
+// 2. Updated the function parameter signatures to accept query criteria variables
+export async function getUnassignedCredentialEmployees(
+  page: number,
+  limit: number,
+  search: string,
+): Promise<PaginatedCredentials> {
+  const response = await apiClient.get<PaginatedCredentials>('/employees/unassigned-credentials', {
+    params: { page, limit, search },
+  })
   return response.data
 }
 
-export async function attachRfidCard(employeeId: number, payload: AssignRfidPayload): Promise<UnassignedCredentialEmployee> {
-  const response = await apiClient.patch<UnassignedCredentialEmployee>(`/employees/${employeeId}/credentials/rfid`, payload)
+export async function attachRfidCard(
+  employeeId: number, 
+  payload: AssignRfidPayload
+): Promise<UnassignedCredentialEmployee> {
+  const response = await apiClient.patch<UnassignedCredentialEmployee>(
+    `/employees/${employeeId}/credentials/rfid`, 
+    payload
+  )
   return response.data
 }
 
-export async function removeCredential(employeeId: number, type: CredentialType): Promise<UnassignedCredentialEmployee> {
+export async function removeCredential(
+  employeeId: number, 
+  type: CredentialType
+): Promise<UnassignedCredentialEmployee> {
   const response = await apiClient.delete<UnassignedCredentialEmployee>(`/employees/${employeeId}/credentials`, {
     params: { type },
   })

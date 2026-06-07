@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Alert,
   Box,
@@ -9,7 +9,9 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
+  MenuItem,
   Paper,
+  Select,
   Snackbar,
   Stack,
   Table,
@@ -25,11 +27,14 @@ import {
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import LockResetRoundedIcon from '@mui/icons-material/LockResetRounded'
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded'
+import ChevronLeftRoundedIcon from '@mui/icons-material/ChevronLeftRounded'
+import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded'
 import {
   createEmployee,
   getAllEmployees,
   resetEmployeePassword,
 } from '../apis/employeeService'
+import { SearchInput } from '../components/utils/SearchInput'
 import { useAuth } from '../hooks/useAuth'
 import type { Employee } from '../types/auth'
 
@@ -38,7 +43,13 @@ export function EmployeesPage() {
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Create dialog
+  // 1. Pagination and Remote Search State Configurations
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)             // Active Page Index (Starts at 1)
+  const [limit, setLimit] = useState(10)          // Standard safe default record count
+  const [totalPages, setTotalPages] = useState(1) // Total accessible data boundary blocks
+
+  // Create Employee Form Dialog State
   const [createOpen, setCreateOpen] = useState(false)
   const [formEmail, setFormEmail] = useState('')
   const [formName, setFormName] = useState('')
@@ -46,28 +57,40 @@ export function EmployeesPage() {
   const [formDob, setFormDob] = useState('')
   const [creating, setCreating] = useState(false)
 
-  // Generated password display
+  // Generated temporary credentials display dialog state
   const [generatedPassword, setGeneratedPassword] = useState('')
   const [generatedFor, setGeneratedFor] = useState('')
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false)
 
-  // Snackbar
+  // Global Notification Toast State
   const [snack, setSnack] = useState<{ message: string; severity: 'success' | 'error' } | null>(null)
 
-  const fetchEmployees = useCallback(async () => {
+  // 2. Core Fetch Engine (Decoupled from dependency updates to stop race conditions)
+  const fetchEmployees = async (currentPage: number, currentLimit: number, currentSearch: string) => {
     try {
-      const data = await getAllEmployees()
-      setEmployees(data)
+      setLoading(true)
+      const data = await getAllEmployees(currentPage, currentLimit, currentSearch)
+      setEmployees(data.items)
+      setTotalPages(data.meta.totalPages || 1)
     } catch {
       setSnack({ message: 'Failed to load employees', severity: 'error' })
     } finally {
       setLoading(false)
     }
-  }, [])
+  }
 
+  // Central Control Station watching pagination inputs
   useEffect(() => {
-    void fetchEmployees()
-  }, [fetchEmployees])
+    void fetchEmployees(page, limit, search)
+  }, [page, limit, search]) 
+
+  // Fallback to page 1 immediately ONLY when executing an intentional keyword mutation
+  const handleSearchSubmit = (value: string) => {
+    if (value.trim() !== search.trim()) {
+      setSearch(value)
+      setPage(1) 
+    }
+  }
 
   const handleCreate = async () => {
     if (!formEmail.trim() || !formName.trim() || !formRate.trim()) return
@@ -87,7 +110,7 @@ export function EmployeesPage() {
       setGeneratedPassword(result.generated_password)
       setGeneratedFor(result.email)
       setPasswordDialogOpen(true)
-      void fetchEmployees()
+      void fetchEmployees(page, limit, search)
     } catch (err: any) {
       const msg = err?.response?.data?.message ?? 'Failed to create employee'
       setSnack({ message: msg, severity: 'error' })
@@ -115,7 +138,7 @@ export function EmployeesPage() {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
         <Box>
           <Typography variant="h5" fontWeight={700}>
             Employees
@@ -135,7 +158,14 @@ export function EmployeesPage() {
         </Stack>
       </Stack>
 
-      <TableContainer component={Paper}>
+      <Box sx={{ mb: 3, mt: 1 }}>
+        <SearchInput 
+          placeholder="Search by name or email..." 
+          onSearch={handleSearchSubmit} 
+        />
+      </Box>
+
+      <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
         <Table size="small">
           <TableHead>
             <TableRow sx={{ bgcolor: 'rgba(0, 160, 157, 0.08)' }}>
@@ -151,13 +181,13 @@ export function EmployeesPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={7} align="center" sx={{ py: 4, color: 'text.secondary' }}>
                   Loading…
                 </TableCell>
               </TableRow>
             ) : employees.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={7} align="center" sx={{ py: 4, color: 'text.secondary' }}>
                   No employees found.
                 </TableCell>
               </TableRow>
@@ -198,6 +228,66 @@ export function EmployeesPage() {
           </TableBody>
         </Table>
       </TableContainer>
+
+      {/* 3. Custom Pagination Module Layout */}
+      {!loading && employees.length > 0 && (
+        <Stack 
+          direction="row" 
+          justifyContent="space-between" 
+          alignItems="center" 
+          sx={{ mt: 2, px: 1 }}
+        >
+          {/* Left Block: Controls with current index tracker */}
+          <Stack direction="row" alignItems="center" spacing={1.5}>
+            <IconButton
+              size="small"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(p - 1, 1))}
+              sx={{ border: '1px solid', borderColor: 'divider' }}
+            >
+              <ChevronLeftRoundedIcon fontSize="small" />
+            </IconButton>
+            
+            <Typography variant="body2" fontWeight={500} color="text.primary">
+              Page {page} of {totalPages}
+            </Typography>
+
+            <IconButton
+              size="small"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
+              sx={{ border: '1px solid', borderColor: 'divider' }}
+            >
+              <ChevronRightRoundedIcon fontSize="small" />
+            </IconButton>
+          </Stack>
+
+          {/* Right Block: Items allocation per view container */}
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <Typography variant="body2" color="text.secondary">
+              Rows per page:
+            </Typography>
+            <Select
+              value={limit}
+              onChange={(e) => {
+                setLimit(Number(e.target.value))
+                setPage(1) // Force back to page 1 to prevent out-of-bounds pointer crashes
+              }}
+              size="small"
+              sx={{ 
+                height: 32, 
+                borderRadius: '6px',
+                '& .MuiSelect-select': { py: 0.5, fontSize: '0.875rem' } 
+              }}
+            >
+              <MenuItem value={1}>1</MenuItem>
+              <MenuItem value={10}>10</MenuItem>
+              <MenuItem value={20}>20</MenuItem>
+              <MenuItem value={50}>50</MenuItem>
+            </Select>
+          </Stack>
+        </Stack>
+      )}
 
       {/* Create Employee Dialog */}
       <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="sm" fullWidth>
@@ -299,7 +389,7 @@ export function EmployeesPage() {
         </DialogActions>
       </Dialog>
 
-      {/* Snackbar */}
+      {/* Snackbar Alerts */}
       <Snackbar
         open={snack !== null}
         autoHideDuration={3000}

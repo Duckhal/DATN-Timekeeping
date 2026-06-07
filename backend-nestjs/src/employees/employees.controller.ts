@@ -14,6 +14,7 @@ import { EmployeesService } from './employees.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { AssignRfidDto } from './dto/assign-rfid.dto';
 import { RemoveCredentialsDto } from './dto/remove-credentials.dto';
+import { QueryEmployeeDto } from './dto/query-employee.dto';
 import { Roles } from '../auth/decorators/roles.decorator';
 
 type JwtRequest = { user: { employee_id: number } };
@@ -28,16 +29,23 @@ export class EmployeesController {
     return this.employeesService.create(dto, req.user.employee_id);
   }
 
-  @Get()
-  @Roles('HR')
-  findAll() {
-    return this.employeesService.findAll();
-  }
-
+@Get()
+@Roles('HR')
+findAll(@Query() query: QueryEmployeeDto) {
+  return this.employeesService.findAll({
+    page: Number(query.page ?? 1),
+    limit: Number(query.limit ?? 10),
+    search: query.search ?? '',
+  });
+}
   @Get('unassigned-credentials')
   @Roles('HR')
-  findUnassignedCredentials() {
-    return this.employeesService.findUnassignedCredentials();
+  findUnassignedCredentials(@Query() query: QueryEmployeeDto) {
+    return this.employeesService.findUnassignedCredentials({
+      page: Number(query.page ?? 1),
+      limit: Number(query.limit ?? 10),
+      search: query.search ?? '',
+    });
   }
 
   @Get(':id')

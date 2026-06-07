@@ -6,8 +6,24 @@ import type {
   ResetPasswordResponse,
 } from '../types/auth'
 
-export async function getAllEmployees(): Promise<Employee[]> {
-  const response = await apiClient.get<Employee[]>('/employees')
+export interface PaginatedEmployees {
+  items: Employee[]
+  meta: {
+    total: number
+    page: number
+    limit: number
+    totalPages: number
+  }
+}
+
+export async function getAllEmployees(
+  page: number,
+  limit: number,
+  search: string,
+): Promise<PaginatedEmployees> {
+  const response = await apiClient.get<PaginatedEmployees>('/employees', {
+    params: { page, limit, search },
+  })
   return response.data
 }
 

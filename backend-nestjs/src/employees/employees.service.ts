@@ -11,6 +11,7 @@ import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import type { AuthMethod, PublicEmployeeProfile } from '../types';
 import * as argon2 from 'argon2';
 import * as crypto from 'crypto';
+import { Prisma } from '@prisma/client/scripts/default-index.js';
 
 const SAFE_SELECT = {
   employee_id: true,
@@ -86,18 +87,77 @@ export class EmployeesService {
     }
   }
 
-  async findAll() {
-    return this.prisma.employee.findMany({
-      select: SAFE_SELECT,
-      orderBy: { employee_id: 'asc' },
-    });
+  async findAll(query: { page: number; limit: number; search: string }) {
+    const { page, limit, search } = query;
+    const skip = (page - 1) * limit;
+
+    const where: any = search
+      ? {
+          OR: [
+            { full_name: { contains: search, mode: 'insensitive' } },
+            { email: { contains: search, mode: 'insensitive' } },
+          ],
+        }
+      : {};
+
+    const [items, total] = await Promise.all([
+      this.prisma.employee.findMany({
+        where,
+        select: SAFE_SELECT,
+        orderBy: { employee_id: 'asc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.employee.count({ where }),
+    ]);
+
+    return {
+      items: items.map((emp) => this.toPublicEmployee(emp)),
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 
-  async findUnassignedCredentials() {
-    return this.prisma.employee.findMany({
-      select: SAFE_SELECT,
-      orderBy: { employee_id: 'asc' },
-    });
+  async findUnassignedCredentials(query: { page: number; limit: number; search: string }) {
+    const { page, limit, search } = query;
+    const skip = (page - 1) * limit;
+
+    // Build case-insensitive dynamic query filter parameters
+    const where: any = search
+      ? {
+          OR: [
+            { full_name: { contains: search, mode: 'insensitive' } },
+            { email: { contains: search, mode: 'insensitive' } },
+            { rfid_tag: { contains: search, mode: 'insensitive' } },
+          ],
+        }
+      : {};
+
+    // Execute concurrently: fetch limited data window and total row criteria count
+    const [items, total] = await Promise.all([
+      this.prisma.employee.findMany({
+        where,
+        select: SAFE_SELECT,
+        orderBy: { employee_id: 'asc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.employee.count({ where }),
+    ]);
+
+    return {
+      items: items.map((emp) => this.toPublicEmployee(emp)),
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 
   async findById(empId: number) {
