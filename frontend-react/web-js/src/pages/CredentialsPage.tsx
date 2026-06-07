@@ -131,7 +131,9 @@ export function CredentialsPage() {
         getUnassignedCredentialEmployees(currentPage, currentLimit, currentSearch),
         getActiveDevices(),
       ])
-      setEmployees(employeeData.items) // Unwrapped paginated object list array
+      
+      // FIX HERE: Unpack the paginated object properties cleanly
+      setEmployees(employeeData.items || []) 
       setTotalPages(employeeData.meta.totalPages || 1)
       setActiveDevices(deviceData.filter((item) => item.status === 'ACTIVE'))
     } catch (error) {
@@ -140,6 +142,7 @@ export function CredentialsPage() {
         severity: 'error',
         message: getApiErrorMessage(error, 'Unable to load credentials data.'),
       })
+      setEmployees([]) // Fallback to safe array on error
     } finally {
       setIsLoading(false)
     }
@@ -299,7 +302,7 @@ export function CredentialsPage() {
       )
     }
 
-    if (employees.length === 0) {
+    if (!employees || employees.length === 0) {
       return (
         <TableRow>
           <TableCell colSpan={6}>

@@ -83,10 +83,12 @@ export function EmployeesPage() {
     try {
       setLoading(true)
       const data = await getAllEmployees(currentPage, currentLimit, currentSearch)
-      setEmployees(data.items)
+      
+      setEmployees(data.items || []) 
       setTotalPages(data.meta.totalPages || 1)
     } catch {
       setSnack({ message: 'Failed to load employees', severity: 'error' })
+      setEmployees([])
     } finally {
       setLoading(false)
     }
@@ -149,6 +151,7 @@ export function EmployeesPage() {
       setGeneratedPassword(result.generated_password)
       setGeneratedFor(result.email)
       setPasswordDialogOpen(true)
+      void fetchEmployees(page, limit, search)
     } catch (err: any) {
       const msg = err?.response?.data?.message ?? 'Failed to reset password'
       setSnack({ message: msg, severity: 'error' })
@@ -239,7 +242,7 @@ export function EmployeesPage() {
                   Loading…
                 </TableCell>
               </TableRow>
-            ) : employees.length === 0 ? (
+            ) : (!employees || employees.length === 0) ? (
               <TableRow>
                 <TableCell colSpan={7} align="center" sx={{ py: 4, color: 'text.secondary' }}>
                   No employees found.
