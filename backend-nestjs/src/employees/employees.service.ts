@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   Logger,
@@ -283,7 +284,13 @@ export class EmployeesService {
 
   async softDeleteEmployee(empId: number) {
     // 1. Verify if the target employee profile strictly exists in the system
-    await this.findById(empId);
+    const targetEmployee = await this.findById(empId);
+
+    if (targetEmployee.role === 'HR') {
+      throw new BadRequestException(
+        'Administrative protection error: HR accounts cannot be deactivated or deleted via this panel.',
+      );
+    }
 
     // 2. Execute a database transaction to wipe hardware mappings and clear templates
     const { updated, targets } = await this.prisma.$transaction(async (tx) => {

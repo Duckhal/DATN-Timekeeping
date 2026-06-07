@@ -280,11 +280,11 @@ export function EmployeesPage() {
                           <LockResetRoundedIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
-                      <Tooltip title="Deactivate Employee">
+                      <Tooltip title={emp.role === 'HR' ? "Protected HR Account" : "Deactivate Employee"}>
                         <IconButton
                           size="small"
                           color="error"
-                          disabled={emp.employee_id === profile?.employee_id} // Prevent self deactivation
+                          disabled={emp.employee_id === profile?.employee_id || emp.role === 'HR'}
                           onClick={() => triggerDeleteConfirm(emp)}
                         >
                           <DeleteRoundedIcon fontSize="small" />

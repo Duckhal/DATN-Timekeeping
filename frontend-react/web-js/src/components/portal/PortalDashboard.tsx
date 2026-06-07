@@ -1,12 +1,8 @@
 import {
   Alert,
   Box,
-  Button,
-  Card,
-  CardContent,
   Chip,
   CircularProgress,
-  Divider,
   IconButton,
   List,
   ListItem,
@@ -22,14 +18,11 @@ import {
   TableRow,
   Typography,
 } from '@mui/material'
-import EventBusyRoundedIcon from '@mui/icons-material/EventBusyRounded'
-import PendingActionsRoundedIcon from '@mui/icons-material/PendingActionsRounded'
 import ScheduleRoundedIcon from '@mui/icons-material/ScheduleRounded'
 import WorkHistoryRoundedIcon from '@mui/icons-material/WorkHistoryRounded'
 import ChevronLeftRoundedIcon from '@mui/icons-material/ChevronLeftRounded'
 import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded'
 import { useEffect, useMemo, useState } from 'react'
-import { quickActions } from '../../utils/portalData'
 import { getMyAttendance } from '../../apis/attendanceService'
 import type {
   AttendanceItem,
@@ -141,61 +134,6 @@ export function PortalDashboard({ welcomeName }: PortalDashboardProps) {
             Attendance Summary - {formatMonthLabel(month)}
           </Typography>
         </Paper>
-
-        <Stack
-          direction={{ xs: 'column', md: 'row' }}
-          spacing={2}
-          divider={<Divider orientation="vertical" flexItem />}
-        >
-          {quickActions.map((item) => (
-            <Button
-              key={item.label}
-              variant="outlined"
-              startIcon={item.icon}
-              sx={{
-                flex: 1,
-                py: 1.25,
-                borderColor: 'rgba(0, 160, 157, 0.4)',
-                color: 'secondary.main',
-                backgroundColor: 'rgba(255, 255, 255, 0.8)',
-              }}
-            >
-              {item.label}
-            </Button>
-          ))}
-        </Stack>
-
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-          <Card sx={{ flex: 1, bgcolor: '#e0f3f2' }}>
-            <CardContent>
-              <Stack direction="row" justifyContent="space-between">
-                <Typography color="text.secondary">Leave Balance</Typography>
-                <PendingActionsRoundedIcon color="primary" />
-              </Stack>
-              <Typography variant="h4" fontWeight={700} mt={1}>
-                0.0
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Remaining this month
-              </Typography>
-            </CardContent>
-          </Card>
-
-          <Card sx={{ flex: 1, bgcolor: '#dff1fd' }}>
-            <CardContent>
-              <Stack direction="row" justifyContent="space-between">
-                <Typography color="text.secondary">Leave Requests</Typography>
-                <EventBusyRoundedIcon color="info" />
-              </Stack>
-              <Typography variant="h4" fontWeight={700} mt={1}>
-                0
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Pending approval
-              </Typography>
-            </CardContent>
-          </Card>
-        </Stack>
 
         <Paper sx={{ border: '1px solid', borderColor: 'divider' }}>
           <Stack
