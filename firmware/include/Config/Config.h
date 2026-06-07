@@ -41,9 +41,30 @@ constexpr uint32_t kPortalRetryWifiIntervalMs = 60000;
 }  // namespace timing
 
 namespace network {
-constexpr const char* kDefaultSsid = "GalaxyA53";
-constexpr const char* kDefaultPassword = "oysl4029";
-constexpr const char* kDefaultServerIp = "192.168.19.16";
+#ifdef WIFI_SSID
+  constexpr const char* kDefaultSsid = WIFI_SSID;
+#else
+  constexpr const char* kDefaultSsid = "Wifi_Mac_Dinh";
+#endif
+
+#ifdef WIFI_PASS
+  constexpr const char* kDefaultPassword = WIFI_PASS;
+#else
+  constexpr const char* kDefaultPassword = "Mat_Khau_Mac_Dinh";
+#endif
+
+#ifdef SERVER_IP
+  constexpr const char* kDefaultServerIp = SERVER_IP;
+#else
+  constexpr const char* kDefaultServerIp = "192.168.1.100";
+#endif
+
+#ifdef DEVICE_API_KEY
+  constexpr const char* kDeviceApiKey = DEVICE_API_KEY;
+#else
+  constexpr const char* kDeviceApiKey = "THIS_IS_A_STRONG_DEVICE_API_KEY_REPLACE_BEFORE_PRODUCTION";
+#endif
+
 constexpr const char* kDefaultDeviceName = "ESP32-Timekeeping-Device";
 constexpr uint16_t kDefaultServerPort = 3000;
 constexpr uint16_t kMqttPort = 1883;
@@ -57,7 +78,6 @@ constexpr const char* kFactoryResetEndpoint = "/devices/factory-reset";
 constexpr const char* kSyncFingerprintEndpoint = "/devices/sync-fingerprint";
 constexpr const char* kBulkSyncTemplatesEndpoint = "/devices/bulk-sync-templates";
 constexpr const char* kBulkSyncAckEndpoint = "/devices/bulk-sync-ack";
-constexpr const char* kDeviceApiKey = "THIS_IS_A_STRONG_DEVICE_API_KEY_REPLACE_BEFORE_PRODUCTION";
 }  // namespace network
 
 namespace buzzer {
