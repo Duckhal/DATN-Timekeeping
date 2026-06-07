@@ -29,15 +29,16 @@ export class EmployeesController {
     return this.employeesService.create(dto, req.user.employee_id);
   }
 
-@Get()
-@Roles('HR')
-findAll(@Query() query: QueryEmployeeDto) {
-  return this.employeesService.findAll({
-    page: Number(query.page ?? 1),
-    limit: Number(query.limit ?? 10),
-    search: query.search ?? '',
-  });
-}
+  @Get()
+  @Roles('HR')
+  findAll(@Query() query: QueryEmployeeDto) {
+    return this.employeesService.findAll({
+      page: Number(query.page ?? 1),
+      limit: Number(query.limit ?? 10),
+      search: query.search ?? '',
+    });
+  }
+
   @Get('unassigned-credentials')
   @Roles('HR')
   findUnassignedCredentials(@Query() query: QueryEmployeeDto) {
@@ -75,5 +76,11 @@ findAll(@Query() query: QueryEmployeeDto) {
     @Query() query: RemoveCredentialsDto,
   ) {
     return this.employeesService.removeCredentialIdentifier(id, query.type);
+  }
+
+  @Delete(':id')
+  @Roles('HR')
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.employeesService.softDeleteEmployee(id);
   }
 }

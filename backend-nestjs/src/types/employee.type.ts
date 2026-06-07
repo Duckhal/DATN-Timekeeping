@@ -11,6 +11,7 @@ export type Employee = {
   rfid_tag: string | null;
   template_fingerprint: string | null;
   must_change_password: boolean;
+  is_active: boolean;
   manager_id: number | null;
   created_at: Date;
   updated_at: Date;

@@ -7,6 +7,7 @@ import {
   Dialog,
   DialogActions,
   DialogContent,
+  DialogContentText,
   DialogTitle,
   IconButton,
   MenuItem,
@@ -29,8 +30,10 @@ import LockResetRoundedIcon from '@mui/icons-material/LockResetRounded'
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded'
 import ChevronLeftRoundedIcon from '@mui/icons-material/ChevronLeftRounded'
 import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded'
+import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
 import {
   createEmployee,
+  deleteEmployee,
   getAllEmployees,
   resetEmployeePassword,
 } from '../apis/employeeService'
@@ -56,6 +59,16 @@ export function EmployeesPage() {
   const [formRate, setFormRate] = useState('')
   const [formDob, setFormDob] = useState('')
   const [creating, setCreating] = useState(false)
+
+  // Reset Password Confirmation Intermediary Modal States
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false)
+  const [employeeToReset, setEmployeeToReset] = useState<Employee | null>(null)
+  const [isResetting, setIsResetting] = useState(false)
+
+  // Soft Delete Account Confirmation Intermediary Modal States
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [employeeToDelete, setEmployeeToDelete] = useState<Employee | null>(null)
+  const [isDeactivating, setIsDeactivating] = useState(false)
 
   // Generated temporary credentials display dialog state
   const [generatedPassword, setGeneratedPassword] = useState('')
@@ -119,15 +132,56 @@ export function EmployeesPage() {
     }
   }
 
-  const handleResetPassword = async (emp: Employee) => {
+  // Intercept reset click to mount safe metadata context panel
+  const triggerResetConfirm = (emp: Employee) => {
+    setEmployeeToReset(emp)
+    setResetConfirmOpen(true)
+  }
+
+  // Real execution trigger for resetting user password
+  const handleExecuteResetPassword = async () => {
+    if (!employeeToReset) return
     try {
-      const result = await resetEmployeePassword(emp.employee_id)
+      setIsResetting(true)
+      const result = await resetEmployeePassword(employeeToReset.employee_id)
+      setResetConfirmOpen(false)
+      setEmployeeToReset(null)
       setGeneratedPassword(result.generated_password)
       setGeneratedFor(result.email)
       setPasswordDialogOpen(true)
     } catch (err: any) {
       const msg = err?.response?.data?.message ?? 'Failed to reset password'
       setSnack({ message: msg, severity: 'error' })
+    } finally {
+      setIsResetting(false)
+    }
+  }
+
+  // Intercept delete click to mount safe metadata context panel
+  const triggerDeleteConfirm = (emp: Employee) => {
+    setEmployeeToDelete(emp)
+    setDeleteConfirmOpen(true)
+  }
+
+  // Real execution trigger for soft deactivating account
+  const handleExecuteSoftDelete = async () => {
+    if (!employeeToDelete) return
+    try {
+      setIsDeactivating(true)
+      await deleteEmployee(employeeToDelete.employee_id)
+      setDeleteConfirmOpen(false)
+      setEmployeeToDelete(null)
+      setSnack({ message: 'Employee account deactivated successfully', severity: 'success' })
+      
+      // Auto fallback page index counter index if last active data row on current page disappears
+      const nextTargetPage = employees.length === 1 ? Math.max(1, page - 1) : page
+      setPage(nextTargetPage)
+      void fetchEmployees(nextTargetPage, limit, search)
+    } catch (err: any) {
+      const msg = err?.response?.data?.message ?? 'Failed to deactivate account'
+      setSnack({ message: msg, severity: 'error' })
+    } finally {
+      setIsDeactivating(false)
     }
   }
 
@@ -213,14 +267,27 @@ export function EmployeesPage() {
                     )}
                   </TableCell>
                   <TableCell align="center">
-                    <Tooltip title="Reset Password">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleResetPassword(emp)}
-                      >
-                        <LockResetRoundedIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
+                    <Stack direction="row" spacing={0.5} justifyContent="center">
+                      <Tooltip title="Reset Password">
+                        <IconButton
+                          size="small"
+                          color="warning"
+                          onClick={() => triggerResetConfirm(emp)}
+                        >
+                          <LockResetRoundedIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Deactivate Employee">
+                        <IconButton
+                          size="small"
+                          color="error"
+                          disabled={emp.employee_id === profile?.employee_id} // Prevent self deactivation
+                          onClick={() => triggerDeleteConfirm(emp)}
+                        >
+                          <DeleteRoundedIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Stack>
                   </TableCell>
                 </TableRow>
               ))
@@ -237,7 +304,6 @@ export function EmployeesPage() {
           alignItems="center" 
           sx={{ mt: 2, px: 1 }}
         >
-          {/* Left Block: Controls with current index tracker */}
           <Stack direction="row" alignItems="center" spacing={1.5}>
             <IconButton
               size="small"
@@ -262,7 +328,6 @@ export function EmployeesPage() {
             </IconButton>
           </Stack>
 
-          {/* Right Block: Items allocation per view container */}
           <Stack direction="row" alignItems="center" spacing={1}>
             <Typography variant="body2" color="text.secondary">
               Rows per page:
@@ -271,7 +336,7 @@ export function EmployeesPage() {
               value={limit}
               onChange={(e) => {
                 setLimit(Number(e.target.value))
-                setPage(1) // Force back to page 1 to prevent out-of-bounds pointer crashes
+                setPage(1) 
               }}
               size="small"
               sx={{ 
@@ -288,6 +353,57 @@ export function EmployeesPage() {
           </Stack>
         </Stack>
       )}
+
+      {/* Confirmation Dialog: Reset Password */}
+      <Dialog
+        open={resetConfirmOpen}
+        onClose={() => !isResetting && setResetConfirmOpen(false)}
+        aria-labelledby="reset-confirm-title"
+        aria-describedby="reset-confirm-description"
+      >
+        <DialogTitle id="reset-confirm-title">
+          Confirm Password Reset
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="reset-confirm-description">
+            Are you sure you want to reset the password for <strong>{employeeToReset?.full_name}</strong> ({employeeToReset?.email})? A new randomized temporary credential will be forced upon generation.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setResetConfirmOpen(false)} color="inherit" disabled={isResetting}>
+            Cancel
+          </Button>
+          <Button onClick={() => void handleExecuteResetPassword()} color="warning" variant="contained" disabled={isResetting} autoFocus>
+            {isResetting ? 'Resetting...' : 'Confirm Reset'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Confirmation Dialog: Soft Delete Deactivation */}
+      <Dialog
+        open={deleteConfirmOpen}
+        onClose={() => !isDeactivating && setDeleteConfirmOpen(false)}
+        aria-labelledby="delete-confirm-title"
+        aria-describedby="delete-confirm-description"
+      >
+        <DialogTitle id="delete-confirm-title" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <DeleteRoundedIcon color="error" /> Deactivate Employee Account
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="delete-confirm-description">
+            Are you sure you want to deactivate the account for <strong>{employeeToDelete?.full_name}</strong> ({employeeToDelete?.email})? 
+            This operation will disable their authorization credentials and clear hardware template indices immediately, but historical timekeeping logs will remain securely preserved.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setDeleteConfirmOpen(false)} color="inherit" disabled={isDeactivating}>
+            Cancel
+          </Button>
+          <Button onClick={() => void handleExecuteSoftDelete()} color="error" variant="contained" disabled={isDeactivating} autoFocus>
+            {isDeactivating ? 'Deactivating...' : 'Confirm Deactivation'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Create Employee Dialog */}
       <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="sm" fullWidth>

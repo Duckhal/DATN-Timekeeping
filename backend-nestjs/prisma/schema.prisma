@@ -64,6 +64,7 @@ model Employee {
   rfid_tag              String?           @unique
   template_fingerprint  String?           @db.Text
   must_change_password  Boolean           @default(true)
+  is_active             Boolean           @default(true)
   manager_id            Int?
   manager               Employee?         @relation("ManagerSubordinates", fields: [manager_id], references: [employee_id], onDelete: SetNull)
   subordinates          Employee[]        @relation("ManagerSubordinates")
