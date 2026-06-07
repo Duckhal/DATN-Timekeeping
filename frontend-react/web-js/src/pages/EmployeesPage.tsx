@@ -83,8 +83,8 @@ export function EmployeesPage() {
     try {
       setLoading(true)
       const data = await getAllEmployees(currentPage, currentLimit, currentSearch)
-      
-      setEmployees(data.items || []) 
+
+      setEmployees(data.items || [])
       setTotalPages(data.meta.totalPages || 1)
     } catch {
       setSnack({ message: 'Failed to load employees', severity: 'error' })
@@ -97,13 +97,13 @@ export function EmployeesPage() {
   // Central Control Station watching pagination inputs
   useEffect(() => {
     void fetchEmployees(page, limit, search)
-  }, [page, limit, search]) 
+  }, [page, limit, search])
 
   // Fallback to page 1 immediately ONLY when executing an intentional keyword mutation
   const handleSearchSubmit = (value: string) => {
     if (value.trim() !== search.trim()) {
       setSearch(value)
-      setPage(1) 
+      setPage(1)
     }
   }
 
@@ -175,7 +175,7 @@ export function EmployeesPage() {
       setDeleteConfirmOpen(false)
       setEmployeeToDelete(null)
       setSnack({ message: 'Employee account deactivated successfully', severity: 'success' })
-      
+
       // Auto fallback page index counter index if last active data row on current page disappears
       const nextTargetPage = employees.length === 1 ? Math.max(1, page - 1) : page
       setPage(nextTargetPage)
@@ -216,9 +216,9 @@ export function EmployeesPage() {
       </Stack>
 
       <Box sx={{ mb: 3, mt: 1 }}>
-        <SearchInput 
-          placeholder="Search by name or email..." 
-          onSearch={handleSearchSubmit} 
+        <SearchInput
+          placeholder="Search by name or email..."
+          onSearch={handleSearchSubmit}
         />
       </Box>
 
@@ -301,10 +301,10 @@ export function EmployeesPage() {
 
       {/* 3. Custom Pagination Module Layout */}
       {!loading && employees.length > 0 && (
-        <Stack 
-          direction="row" 
-          justifyContent="space-between" 
-          alignItems="center" 
+        <Stack
+          direction="row"
+          justifyContent="space-between"
+          alignItems="center"
           sx={{ mt: 2, px: 1 }}
         >
           <Stack direction="row" alignItems="center" spacing={1.5}>
@@ -316,7 +316,7 @@ export function EmployeesPage() {
             >
               <ChevronLeftRoundedIcon fontSize="small" />
             </IconButton>
-            
+
             <Typography variant="body2" fontWeight={500} color="text.primary">
               Page {page} of {totalPages}
             </Typography>
@@ -339,13 +339,13 @@ export function EmployeesPage() {
               value={limit}
               onChange={(e) => {
                 setLimit(Number(e.target.value))
-                setPage(1) 
+                setPage(1)
               }}
               size="small"
-              sx={{ 
-                height: 32, 
+              sx={{
+                height: 32,
                 borderRadius: '6px',
-                '& .MuiSelect-select': { py: 0.5, fontSize: '0.875rem' } 
+                '& .MuiSelect-select': { py: 0.5, fontSize: '0.875rem' }
               }}
             >
               <MenuItem value={1}>1</MenuItem>
@@ -394,7 +394,7 @@ export function EmployeesPage() {
         </DialogTitle>
         <DialogContent>
           <DialogContentText id="delete-confirm-description">
-            Are you sure you want to deactivate the account for <strong>{employeeToDelete?.full_name}</strong> ({employeeToDelete?.email})? 
+            Are you sure you want to deactivate the account for <strong>{employeeToDelete?.full_name}</strong> ({employeeToDelete?.email})?
             This operation will disable their authorization credentials and clear hardware template indices immediately, but historical timekeeping logs will remain securely preserved.
           </DialogContentText>
         </DialogContent>

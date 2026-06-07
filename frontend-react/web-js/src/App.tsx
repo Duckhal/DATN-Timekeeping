@@ -11,6 +11,7 @@ import { ChangePasswordPage } from './pages/ChangePasswordPage'
 import { EmployeesPage } from './pages/EmployeesPage'
 import { RequestsPage } from './pages/RequestsPage'
 import { ApprovalsPage } from './pages/ApprovalsPage'
+import { AttendanceLogPage } from './pages/AttendanceLogPage'
 import { AppThemeProvider } from './providers/theme/AppThemeProvider'
 import { MainLayout } from './components/layout/MainLayout'
 
@@ -31,6 +32,7 @@ function App() {
                   <Route path="/employees" element={<EmployeesPage />} />
                   <Route path="/requests" element={<RequestsPage />} />
                   <Route path="/approvals" element={<ApprovalsPage />} />
+                  <Route path="/attendance-log" element={<AttendanceLogPage />} />
                 </Route>
                 <Route path="/change-password" element={<ChangePasswordPage />} />
               </Route>

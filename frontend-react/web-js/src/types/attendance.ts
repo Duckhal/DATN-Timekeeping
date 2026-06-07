@@ -27,3 +27,28 @@ export type AttendanceQuery = {
   page?: number
   pageSize?: number
 }
+
+export type AllAttendanceItem = AttendanceItem & {
+  employee: {
+    employee_id: number
+    email: string
+    full_name: string
+  }
+}
+
+export type AllAttendancePage = {
+  items: AllAttendanceItem[]
+  page: number
+  pageSize: number
+  total: number
+  range: { from: string; to: string }
+}
+
+export type AllAttendanceQuery = {
+  month?: string
+  from?: string
+  to?: string
+  search?: string
+  page?: number
+  pageSize?: number
+}

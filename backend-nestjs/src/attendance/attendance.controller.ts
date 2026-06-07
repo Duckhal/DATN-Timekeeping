@@ -1,6 +1,7 @@
 import { Controller, Get, ParseIntPipe, Param, Query, Req } from '@nestjs/common';
 import { AttendanceService } from './attendance.service';
 import { QueryAttendanceDto } from './dto/query-attendance.dto';
+import { QueryAllAttendanceDto } from './dto/query-all-attendance.dto';
 import { Roles } from '../auth/decorators/roles.decorator';
 
 type JwtRequest = {
@@ -24,6 +25,13 @@ export class AttendanceController {
   @Get('attendance/me/missing-checkout')
   findMissingCheckout(@Req() req: JwtRequest) {
     return this.attendanceService.findMissingCheckoutDays(req.user.employee_id);
+  }
+
+  // HR — paginated attendance log for all employees.
+  @Get('attendance/all')
+  @Roles('HR')
+  findAllEmployeeAttendance(@Query() query: QueryAllAttendanceDto) {
+    return this.attendanceService.listAllEmployeeAttendance(query);
   }
 
   // HR — read attendance for any employee.

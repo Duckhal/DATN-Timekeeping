@@ -1,6 +1,7 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { QueryAttendanceDto } from './dto/query-attendance.dto';
+import { QueryAllAttendanceDto } from './dto/query-all-attendance.dto';
 import { computeAttendance } from './attendance.compute';
 
 export type AttendanceItem = {
@@ -15,8 +16,24 @@ export type AttendanceItem = {
   status: 'COMPLETED' | 'SHORTHOURS' | 'DAYOFF' | 'WEEKEND';
 };
 
+export type AllAttendanceItem = AttendanceItem & {
+  employee: {
+    employee_id: number;
+    email: string;
+    full_name: string;
+  };
+};
+
 export type AttendancePage = {
   items: AttendanceItem[];
+  page: number;
+  pageSize: number;
+  total: number;
+  range: { from: string; to: string };
+};
+
+export type AllAttendancePage = {
+  items: AllAttendanceItem[];
   page: number;
   pageSize: number;
   total: number;
@@ -27,6 +44,7 @@ export type AttendancePage = {
 export class AttendanceService {
   private static readonly DEFAULT_PAGE_SIZE = 31;
   private static readonly MAX_PAGE_SIZE = 100;
+  private readonly logger = new Logger(AttendanceService.name);
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -148,6 +166,114 @@ export class AttendanceService {
     const m = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
     return `${y}-${m}-${day}`;
+  }
+
+  /**
+   * HR — paginated attendance log for all employees with role EMPLOYEE.
+   * Supports search by name/email and date range filtering.
+   */
+  async listAllEmployeeAttendance(
+    query: QueryAllAttendanceDto,
+  ): Promise<AllAttendancePage> {
+    const { from, to } = this.resolveDateRange(query);
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 20;
+    const search = query.search?.trim() ?? '';
+
+    // Build employee filter: only active EMPLOYEE-role accounts
+    const employeeFilter: any = {
+      role: 'EMPLOYEE',
+      is_active: true,
+      ...(search
+        ? {
+            OR: [
+              { full_name: { contains: search, mode: 'insensitive' } },
+              { email: { contains: search, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    };
+
+    const where = {
+      employee: employeeFilter,
+      date: { gte: from, lte: to },
+    };
+
+    const [total, rows] = await this.prisma.$transaction([
+      this.prisma.dailyAttendance.count({ where }),
+      this.prisma.dailyAttendance.findMany({
+        where,
+        orderBy: [{ date: 'desc' }, { employee_id: 'asc' }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: {
+          employee: {
+            select: { employee_id: true, email: true, full_name: true },
+          },
+        },
+      }),
+    ]);
+
+    // Batch-fetch approved OT requests for all employees in the date range
+    const employeeIds = [...new Set(rows.map((r) => r.employee_id))];
+    const otRequests = employeeIds.length
+      ? await this.prisma.request.findMany({
+          where: {
+            employee_id: { in: employeeIds },
+            type: 'OT',
+            status: 'APPROVED',
+            date: { gte: from, lte: to },
+          },
+          select: { employee_id: true, date: true },
+        })
+      : [];
+
+    const otSet = new Set(
+      otRequests.map(
+        (r) => `${r.employee_id}_${r.date.toISOString().slice(0, 10)}`,
+      ),
+    );
+
+    const items: AllAttendanceItem[] = rows.map((row) => {
+      const dateKey = row.date.toISOString().slice(0, 10);
+      const dayOfWeek = row.date.getDay();
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      const otKey = `${row.employee_id}_${dateKey}`;
+      const computed = computeAttendance({
+        checkin: row.checkin_time,
+        checkout: row.checkout_time,
+        otApproved: otSet.has(otKey),
+        isWeekend,
+      });
+      return {
+        attendance_id: row.attendance_id.toString(),
+        date: this.formatDate(row.date),
+        checkin_time: computed.checkinTime,
+        checkout_time: computed.checkoutTime,
+        work_start: computed.workStart,
+        work_end: computed.workEnd,
+        missing_minutes: computed.missingMinutes,
+        total_workday: computed.totalWorkday,
+        status: computed.status,
+        employee: {
+          employee_id: row.employee.employee_id,
+          email: row.employee.email,
+          full_name: row.employee.full_name,
+        },
+      };
+    });
+
+    this.logger.log(
+      `[AttendanceLog] HR queried all attendance: search="${search}" range=${this.formatDate(from)}..${this.formatDate(to)} page=${page} pageSize=${pageSize} total=${total}`,
+    );
+
+    return {
+      items,
+      page,
+      pageSize,
+      total,
+      range: { from: this.formatDate(from), to: this.formatDate(to) },
+    };
   }
 
   async findMissingCheckoutDays(employeeId: number) {

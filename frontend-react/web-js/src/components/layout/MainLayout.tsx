@@ -29,6 +29,7 @@ import FactCheckRoundedIcon from '@mui/icons-material/FactCheckRounded'
 import NotificationsRoundedIcon from '@mui/icons-material/NotificationsRounded'
 import HelpOutlineRoundedIcon from '@mui/icons-material/HelpOutlineRounded'
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded'
+import EventNoteRoundedIcon from '@mui/icons-material/EventNoteRounded'
 
 import { useAuth } from '../../hooks/useAuth'
 import { useNotifications } from '../../contexts/NotificationContext'
@@ -60,8 +61,10 @@ export function MainLayout() {
       { label: 'Devices', path: '/devices', icon: <DevicesRoundedIcon /> },
       { label: 'Authentication', path: '/credentials', icon: <VpnKeyRoundedIcon /> },
       { label: 'Approvals', path: '/approvals', icon: <FactCheckRoundedIcon /> },
-    ] : []),
-    { label: 'My Requests', path: '/requests', icon: <AssessmentRoundedIcon /> },
+      { label: 'Attendance Log', path: '/attendance-log', icon: <EventNoteRoundedIcon /> },
+    ] : [
+      { label: 'My Requests', path: '/requests', icon: <AssessmentRoundedIcon /> },
+    ]),
   ]
 
   // Sidebar content (logo + menu + help box)
