@@ -1,4 +1,3 @@
-// src/pages/CredentialsPage.tsx
 import { useEffect, useMemo, useState } from 'react'
 import type { AxiosError } from 'axios'
 import {
@@ -25,7 +24,6 @@ import {
   TableHead,
   TableRow,
   TextField,
-  Tooltip,
   IconButton,
   Typography,
 } from '@mui/material'
