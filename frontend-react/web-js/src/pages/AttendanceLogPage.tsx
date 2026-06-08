@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Alert,
   Box,
+  Button,
   Chip,
   CircularProgress,
-  InputAdornment,
+  Divider,
   Paper,
   Stack,
   Table,
@@ -17,16 +18,20 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
-import { getAllAttendanceLogs } from '../apis/attendanceLogService'
+import CalculateRoundedIcon from '@mui/icons-material/CalculateRounded'
+import { SearchInput } from '../components/utils/SearchInput'
+import {
+  getAllAttendanceLogs,
+  getAttendanceSummary,
+} from '../apis/attendanceLogService'
 import type {
   AllAttendanceItem,
   AllAttendancePage,
   AttendanceStatusCode,
+  EmployeeAttendanceSummary,
 } from '../types/attendance'
 
-// ─── Constants ─────────────────────────────────────────────
-
+// Constants
 const STATUS_LABEL: Record<AttendanceStatusCode, string> = {
   COMPLETED: 'Complete',
   SHORTHOURS: 'Short Hours',
@@ -49,17 +54,15 @@ const MONTH_LABEL = new Intl.DateTimeFormat('en-US', {
   year: 'numeric',
 })
 
-const PAGE_SIZE_OPTIONS = [20, 50, 100] as const
+const PAGE_SIZE_OPTIONS = [1, 10, 20, 50, 100] as const
 
-// ─── Helpers ───────────────────────────────────────────────
-
+// Helpers
 function currentMonth(): string {
   const now = new Date()
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 }
 
 // shiftMonth removed — replaced by direct month picker input
-
 function formatMonthLabel(month: string): string {
   const [y, m] = month.split('-').map(Number)
   return MONTH_LABEL.format(new Date(y, m - 1, 1))
@@ -74,11 +77,9 @@ function dash(value: string | null): string {
   return value ?? '—'
 }
 
-// ─── Component ─────────────────────────────────────────────
-
+// Component
 export function AttendanceLogPage() {
   const [month, setMonth] = useState<string>(() => currentMonth())
-  const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [page, setPage] = useState(0) // MUI TablePagination is 0-indexed
   const [pageSize, setPageSize] = useState<number>(20)
@@ -87,22 +88,31 @@ export function AttendanceLogPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Debounce search input (300ms)
-  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  useEffect(() => {
-    debounceTimer.current = setTimeout(() => {
-      setDebouncedSearch(search)
-      setPage(0) // Reset to first page on search change
-    }, 300)
-    return () => {
-      if (debounceTimer.current) clearTimeout(debounceTimer.current)
-    }
-  }, [search])
+  // Monthly summary (total missing_minutes + total_workday) for the searched
+  // employee. Only computable when the current search resolves to exactly one
+  // employee, so we track that distinct-employee count from the loaded page.
+  const [summary, setSummary] = useState<EmployeeAttendanceSummary | null>(null)
+  const [summaryLoading, setSummaryLoading] = useState(false)
+  const [summaryError, setSummaryError] = useState<string | null>(null)
+
+  // Debounced search now comes from the shared SearchInput component.
+  const handleSearch = useCallback((value: string) => {
+    setDebouncedSearch(value)
+    setPage(0) // Reset to first page on search change
+    setSummary(null) // Drop a stale summary when the filter changes
+    setSummaryError(null)
+  }, [])
 
   // Reset page when month or pageSize changes
   useEffect(() => {
     setPage(0)
   }, [month, pageSize])
+
+  // Clear any existing summary when the month changes — it no longer matches.
+  useEffect(() => {
+    setSummary(null)
+    setSummaryError(null)
+  }, [month])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -131,6 +141,49 @@ export function AttendanceLogPage() {
 
   const items: AllAttendanceItem[] = useMemo(() => data?.items ?? [], [data])
   const total = data?.total ?? 0
+
+  // Count distinct employee IDs in the currently loaded page to determine if the search resolves to a single employee for summary calculation. This is a bit
+  // hacky but avoids an extra API call just to get the count of matched
+  // employees for the current search+month filter.
+  const distinctEmployeeIds = useMemo(() => {
+    const ids = new Set<number>()
+    for (const item of items) ids.add(item.employee.employee_id)
+    return ids
+  }, [items])
+
+  const hasSearch = debouncedSearch.trim().length > 0
+  const singleEmployeeMatched = distinctEmployeeIds.size === 1
+  const canCalculate =
+    hasSearch && singleEmployeeMatched && total > 0 && !loading
+
+  const handleCalculateSummary = useCallback(async () => {
+    setSummaryLoading(true)
+    setSummaryError(null)
+    setSummary(null)
+    try {
+      const result = await getAttendanceSummary({
+        month,
+        search: debouncedSearch.trim(),
+      })
+      if (result.matched === 0) {
+        setSummaryError('No matching employee found for this search.')
+        return
+      }
+      if (result.matched > 1) {
+        setSummaryError(
+          'Search matches multiple employees. Please refine the search to a single employee.',
+        )
+        return
+      }
+      setSummary(result.summaries[0])
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to calculate summary.'
+      setSummaryError(message)
+    } finally {
+      setSummaryLoading(false)
+    }
+  }, [month, debouncedSearch])
 
   return (
     <Box sx={{ px: { xs: 0, md: 1 }, py: 1 }}>
@@ -162,36 +215,133 @@ export function AttendanceLogPage() {
             spacing={2}
           >
             {/* Search Field */}
-            <TextField
-              id="attendance-log-search"
-              size="small"
+            <SearchInput
               placeholder="Search by name or email…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchRoundedIcon sx={{ color: '#94A3B8', fontSize: 20 }} />
-                    </InputAdornment>
-                  ),
-                },
-              }}
-              sx={{ minWidth: 280, maxWidth: 360 }}
+              onSearch={handleSearch}
             />
 
-            {/* Month Picker */}
-            <TextField
-              id="attendance-log-month"
-              type="month"
-              size="small"
-              value={month}
-              onChange={(e) => setMonth(e.target.value)}
-              inputProps={{ max: currentMonth() }}
-              sx={{ minWidth: 180 }}
-            />
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={2}
+              alignItems={{ xs: 'stretch', sm: 'center' }}
+            >
+              {/* Month Picker */}
+              <TextField
+                id="attendance-log-month"
+                type="month"
+                size="small"
+                value={month}
+                onChange={(e) => setMonth(e.target.value)}
+                inputProps={{ max: currentMonth() }}
+                sx={{ minWidth: 180 }}
+              />
+
+              {/* Calculate monthly total — enabled only when search resolves
+                  to a single employee on the loaded page. */}
+              <Button
+                variant="contained"
+                startIcon={
+                  summaryLoading ? (
+                    <CircularProgress size={16} color="inherit" />
+                  ) : (
+                    <CalculateRoundedIcon />
+                  )
+                }
+                disabled={!canCalculate || summaryLoading}
+                onClick={() => void handleCalculateSummary()}
+                sx={{ whiteSpace: 'nowrap' }}
+              >
+                Calculate Total
+              </Button>
+            </Stack>
           </Stack>
+
+          {/* Hint when the button is disabled because of an ambiguous search */}
+          {hasSearch && !singleEmployeeMatched && total > 0 && (
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: 'block', mt: 1 }}
+            >
+              Search matches multiple employees. Refine to a single name or
+              email to calculate the monthly total.
+            </Typography>
+          )}
+          {!hasSearch && (
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: 'block', mt: 1 }}
+            >
+              Type an employee name or email to enable monthly total
+              calculation.
+            </Typography>
+          )}
         </Paper>
+
+        {/* Summary error */}
+        {summaryError && (
+          <Alert severity="warning" variant="outlined" onClose={() => setSummaryError(null)}>
+            {summaryError}
+          </Alert>
+        )}
+
+        {/* Monthly Summary Banner */}
+        {summary && (
+          <Paper
+            elevation={0}
+            sx={{
+              p: 2,
+              border: '1px solid',
+              borderColor: 'primary.main',
+              borderRadius: 2,
+              background:
+                'linear-gradient(105deg, rgba(76,77,220,0.10), rgba(76,77,220,0.03))',
+            }}
+          >
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={{ xs: 1.5, sm: 3 }}
+              alignItems={{ xs: 'flex-start', sm: 'center' }}
+              divider={
+                <Divider orientation="vertical" flexItem sx={{ display: { xs: 'none', sm: 'block' } }} />
+              }
+            >
+              <Box>
+                <Typography variant="subtitle1" fontWeight={700}>
+                  {summary.employee.full_name}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {summary.employee.email} · {formatMonthLabel(month)}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  Total Missing Minutes
+                </Typography>
+                <Typography variant="h6" fontWeight={700}>
+                  {summary.total_missing_minutes}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  Total Workday
+                </Typography>
+                <Typography variant="h6" fontWeight={700}>
+                  {summary.total_workday}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  Days Counted
+                </Typography>
+                <Typography variant="h6" fontWeight={700}>
+                  {summary.days_counted}
+                </Typography>
+              </Box>
+            </Stack>
+          </Paper>
+        )}
 
         {/* Error Alert */}
         {error && (

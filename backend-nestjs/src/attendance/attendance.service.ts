@@ -40,6 +40,23 @@ export type AllAttendancePage = {
   range: { from: string; to: string };
 };
 
+export type EmployeeAttendanceSummary = {
+  employee: {
+    employee_id: number;
+    email: string;
+    full_name: string;
+  };
+  total_missing_minutes: number;
+  total_workday: string; // sum of daily credits, 2 decimals
+  days_counted: number; // number of DailyAttendance rows in range
+};
+
+export type AttendanceSummaryResponse = {
+  range: { from: string; to: string };
+  matched: number; // number of distinct employees matching the search
+  summaries: EmployeeAttendanceSummary[];
+};
+
 @Injectable()
 export class AttendanceService {
   private static readonly DEFAULT_PAGE_SIZE = 31;
@@ -273,6 +290,122 @@ export class AttendanceService {
       pageSize,
       total,
       range: { from: this.formatDate(from), to: this.formatDate(to) },
+    };
+  }
+
+  // HR — monthly aggregate (total missing_minutes + total_workday) for the
+  // employee(s) matching the `search` term within the resolved date range.
+  async summarizeEmployeeAttendance(
+    query: QueryAllAttendanceDto,
+  ): Promise<AttendanceSummaryResponse> {
+    const { from, to } = this.resolveDateRange(query);
+    const search = query.search?.trim() ?? '';
+
+    const employeeFilter: any = {
+      role: 'EMPLOYEE',
+      is_active: true,
+      ...(search
+        ? {
+            OR: [
+              { full_name: { contains: search, mode: 'insensitive' } },
+              { email: { contains: search, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    };
+
+    const where = {
+      employee: employeeFilter,
+      date: { gte: from, lte: to },
+    };
+
+    // Pull every matching row in the range (no pagination) plus approved OT.
+    const rows = await this.prisma.dailyAttendance.findMany({
+      where,
+      orderBy: [{ employee_id: 'asc' }, { date: 'asc' }],
+      include: {
+        employee: {
+          select: { employee_id: true, email: true, full_name: true },
+        },
+      },
+    });
+
+    const employeeIds = [...new Set(rows.map((r) => r.employee_id))];
+    const otRequests = employeeIds.length
+      ? await this.prisma.request.findMany({
+          where: {
+            employee_id: { in: employeeIds },
+            type: 'OT',
+            status: 'APPROVED',
+            date: { gte: from, lte: to },
+          },
+          select: { employee_id: true, date: true },
+        })
+      : [];
+
+    const otSet = new Set(
+      otRequests.map(
+        (r) => `${r.employee_id}_${r.date.toISOString().slice(0, 10)}`,
+      ),
+    );
+
+    // Accumulate per employee. workdaySum is kept as a float and rounded once
+    // at the end to avoid compounding string-parse rounding per row.
+    const acc = new Map<
+      number,
+      {
+        employee: { employee_id: number; email: string; full_name: string };
+        missing: number;
+        workday: number;
+        days: number;
+      }
+    >();
+
+    for (const row of rows) {
+      const dateKey = row.date.toISOString().slice(0, 10);
+      const dayOfWeek = row.date.getDay();
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      const otKey = `${row.employee_id}_${dateKey}`;
+      const computed = computeAttendance({
+        checkin: row.checkin_time,
+        checkout: row.checkout_time,
+        otApproved: otSet.has(otKey),
+        isWeekend,
+      });
+
+      const entry = acc.get(row.employee_id) ?? {
+        employee: {
+          employee_id: row.employee.employee_id,
+          email: row.employee.email,
+          full_name: row.employee.full_name,
+        },
+        missing: 0,
+        workday: 0,
+        days: 0,
+      };
+      entry.missing += computed.missingMinutes;
+      entry.workday += parseFloat(computed.totalWorkday);
+      entry.days += 1;
+      acc.set(row.employee_id, entry);
+    }
+
+    const summaries: EmployeeAttendanceSummary[] = [...acc.values()].map(
+      (e) => ({
+        employee: e.employee,
+        total_missing_minutes: e.missing,
+        total_workday: e.workday.toFixed(2),
+        days_counted: e.days,
+      }),
+    );
+
+    this.logger.log(
+      `[AttendanceLog] HR summary: search="${search}" range=${this.formatDate(from)}..${this.formatDate(to)} matched=${summaries.length}`,
+    );
+
+    return {
+      range: { from: this.formatDate(from), to: this.formatDate(to) },
+      matched: summaries.length,
+      summaries,
     };
   }
 

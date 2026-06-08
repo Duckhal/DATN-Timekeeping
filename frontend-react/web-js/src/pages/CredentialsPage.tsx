@@ -22,9 +22,9 @@ import {
   TableCell,
   TableContainer,
   TableHead,
+  TablePagination,
   TableRow,
   TextField,
-  IconButton,
   Typography,
 } from '@mui/material'
 import {
@@ -32,8 +32,6 @@ import {
   Cancel as CancelIcon,
   DeleteOutline as DeleteIcon,
 } from '@mui/icons-material'
-import ChevronLeftRoundedIcon from '@mui/icons-material/ChevronLeftRounded'
-import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded'
 import {
   attachRfidCard,
   getActiveDevices,
@@ -85,6 +83,8 @@ const DEFAULT_REMOVE_CONFIRM: RemoveConfirmState = {
   type: null,
 }
 
+const PAGE_SIZE_OPTIONS = [1, 10, 20, 50, 100] as const
+
 function getApiErrorMessage(error: unknown, fallback: string): string {
   const axiosError = error as AxiosError<{ message?: string | string[] }>
   const message = axiosError.response?.data?.message
@@ -106,9 +106,9 @@ export function CredentialsPage() {
 
   // 1. Added Search and Pagination States Configured for Server-side Filtering
   const [search, setSearch] = useState('')
-  const [page, setPage] = useState(1)
-  const [limit, setLimit] = useState(10)
-  const [totalPages, setTotalPages] = useState(1)
+  const [page, setPage] = useState(0)   // MUI TablePagination is 0-indexed
+  const [limit, setLimit] = useState(20)
+  const [total, setTotal] = useState(0)
 
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmittingRfid, setIsSubmittingRfid] = useState(false)
@@ -128,13 +128,12 @@ export function CredentialsPage() {
     try {
       setIsLoading(true)
       const [employeeData, deviceData] = await Promise.all([
-        getUnassignedCredentialEmployees(currentPage, currentLimit, currentSearch),
+        getUnassignedCredentialEmployees(currentPage + 1, currentLimit, currentSearch),
         getActiveDevices(),
       ])
-      
-      // FIX HERE: Unpack the paginated object properties cleanly
-      setEmployees(employeeData.items || []) 
-      setTotalPages(employeeData.meta.totalPages || 1)
+
+      setEmployees(employeeData.items || [])
+      setTotal(employeeData.meta.total || 0)
       setActiveDevices(deviceData.filter((item) => item.status === 'ACTIVE'))
     } catch (error) {
       setSnackbar({
@@ -157,7 +156,7 @@ export function CredentialsPage() {
   const handleSearchSubmit = (value: string) => {
     if (value.trim() !== search.trim()) {
       setSearch(value)
-      setPage(1)
+      setPage(0)
     }
   }
 
@@ -449,66 +448,24 @@ export function CredentialsPage() {
               <TableBody>{rows}</TableBody>
             </Table>
           </TableContainer>
+
+          {/* Pagination */}
+          <TablePagination
+            component="div"
+            count={total}
+            page={page}
+            onPageChange={(_e, newPage) => setPage(newPage)}
+            rowsPerPage={limit}
+            onRowsPerPageChange={(e) => {
+              setLimit(parseInt(e.target.value, 10))
+              setPage(0)
+            }}
+            rowsPerPageOptions={[...PAGE_SIZE_OPTIONS]}
+          />
         </Paper>
       </Stack>
 
       {/* 4. Custom Pagination Component integration mapped directly below the paper grid */}
-      {!isLoading && employees.length > 0 && (
-        <Stack 
-          direction="row" 
-          justifyContent="space-between" 
-          alignItems="center" 
-          sx={{ mt: 2, px: 1 }}
-        >
-          <Stack direction="row" alignItems="center" spacing={1.5}>
-            <IconButton
-              size="small"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => Math.max(p - 1, 1))}
-              sx={{ border: '1px solid', borderColor: 'divider' }}
-            >
-              <ChevronLeftRoundedIcon fontSize="small" />
-            </IconButton>
-            
-            <Typography variant="body2" fontWeight={500} color="text.primary">
-              Page {page} of {totalPages}
-            </Typography>
-
-            <IconButton
-              size="small"
-              disabled={page >= totalPages}
-              onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
-              sx={{ border: '1px solid', borderColor: 'divider' }}
-            >
-              <ChevronRightRoundedIcon fontSize="small" />
-            </IconButton>
-          </Stack>
-
-          <Stack direction="row" alignItems="center" spacing={1}>
-            <Typography variant="body2" color="text.secondary">
-              Rows per page:
-            </Typography>
-            <Select
-              value={limit}
-              onChange={(e) => {
-                setLimit(Number(e.target.value))
-                setPage(1)
-              }}
-              size="small"
-              sx={{ 
-                height: 32, 
-                borderRadius: '6px',
-                '& .MuiSelect-select': { py: 0.5, fontSize: '0.875rem' } 
-              }}
-            >
-              <MenuItem value={1}>1</MenuItem>
-              <MenuItem value={10}>10</MenuItem>
-              <MenuItem value={20}>20</MenuItem>
-              <MenuItem value={50}>50</MenuItem>
-            </Select>
-          </Stack>
-        </Stack>
-      )}
 
       {/* Dialog Attach/Edit RFID */}
       <Dialog open={rfidDialogOpen} onClose={() => setRfidDialogOpen(false)} fullWidth maxWidth="sm">

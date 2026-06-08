@@ -10,9 +10,7 @@ import {
   DialogContentText,
   DialogTitle,
   IconButton,
-  MenuItem,
   Paper,
-  Select,
   Snackbar,
   Stack,
   Table,
@@ -20,6 +18,7 @@ import {
   TableCell,
   TableContainer,
   TableHead,
+  TablePagination,
   TableRow,
   TextField,
   Tooltip,
@@ -28,8 +27,6 @@ import {
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import LockResetRoundedIcon from '@mui/icons-material/LockResetRounded'
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded'
-import ChevronLeftRoundedIcon from '@mui/icons-material/ChevronLeftRounded'
-import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
 import {
   createEmployee,
@@ -41,6 +38,8 @@ import { SearchInput } from '../components/utils/SearchInput'
 import { useAuth } from '../hooks/useAuth'
 import type { Employee } from '../types/auth'
 
+const PAGE_SIZE_OPTIONS = [1, 10, 20, 50, 100] as const
+
 export function EmployeesPage() {
   const { profile } = useAuth()
   const [employees, setEmployees] = useState<Employee[]>([])
@@ -48,9 +47,9 @@ export function EmployeesPage() {
 
   // 1. Pagination and Remote Search State Configurations
   const [search, setSearch] = useState('')
-  const [page, setPage] = useState(1)             // Active Page Index (Starts at 1)
-  const [limit, setLimit] = useState(10)          // Standard safe default record count
-  const [totalPages, setTotalPages] = useState(1) // Total accessible data boundary blocks
+  const [page, setPage] = useState(0)   // MUI TablePagination is 0-indexed
+  const [limit, setLimit] = useState(20) // Standard safe default record count
+  const [total, setTotal] = useState(0)  // Total record count for pagination
 
   // Create Employee Form Dialog State
   const [createOpen, setCreateOpen] = useState(false)
@@ -82,10 +81,10 @@ export function EmployeesPage() {
   const fetchEmployees = async (currentPage: number, currentLimit: number, currentSearch: string) => {
     try {
       setLoading(true)
-      const data = await getAllEmployees(currentPage, currentLimit, currentSearch)
+      const data = await getAllEmployees(currentPage + 1, currentLimit, currentSearch)
 
       setEmployees(data.items || [])
-      setTotalPages(data.meta.totalPages || 1)
+      setTotal(data.meta.total || 0)
     } catch {
       setSnack({ message: 'Failed to load employees', severity: 'error' })
       setEmployees([])
@@ -103,7 +102,7 @@ export function EmployeesPage() {
   const handleSearchSubmit = (value: string) => {
     if (value.trim() !== search.trim()) {
       setSearch(value)
-      setPage(1)
+      setPage(0)
     }
   }
 
@@ -177,7 +176,7 @@ export function EmployeesPage() {
       setSnack({ message: 'Employee account deactivated successfully', severity: 'success' })
 
       // Auto fallback page index counter index if last active data row on current page disappears
-      const nextTargetPage = employees.length === 1 ? Math.max(1, page - 1) : page
+      const nextTargetPage = employees.length === 1 ? Math.max(0, page - 1) : page
       setPage(nextTargetPage)
       void fetchEmployees(nextTargetPage, limit, search)
     } catch (err: any) {
@@ -299,63 +298,19 @@ export function EmployeesPage() {
         </Table>
       </TableContainer>
 
-      {/* 3. Custom Pagination Module Layout */}
-      {!loading && employees.length > 0 && (
-        <Stack
-          direction="row"
-          justifyContent="space-between"
-          alignItems="center"
-          sx={{ mt: 2, px: 1 }}
-        >
-          <Stack direction="row" alignItems="center" spacing={1.5}>
-            <IconButton
-              size="small"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => Math.max(p - 1, 1))}
-              sx={{ border: '1px solid', borderColor: 'divider' }}
-            >
-              <ChevronLeftRoundedIcon fontSize="small" />
-            </IconButton>
-
-            <Typography variant="body2" fontWeight={500} color="text.primary">
-              Page {page} of {totalPages}
-            </Typography>
-
-            <IconButton
-              size="small"
-              disabled={page >= totalPages}
-              onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
-              sx={{ border: '1px solid', borderColor: 'divider' }}
-            >
-              <ChevronRightRoundedIcon fontSize="small" />
-            </IconButton>
-          </Stack>
-
-          <Stack direction="row" alignItems="center" spacing={1}>
-            <Typography variant="body2" color="text.secondary">
-              Rows per page:
-            </Typography>
-            <Select
-              value={limit}
-              onChange={(e) => {
-                setLimit(Number(e.target.value))
-                setPage(1)
-              }}
-              size="small"
-              sx={{
-                height: 32,
-                borderRadius: '6px',
-                '& .MuiSelect-select': { py: 0.5, fontSize: '0.875rem' }
-              }}
-            >
-              <MenuItem value={1}>1</MenuItem>
-              <MenuItem value={10}>10</MenuItem>
-              <MenuItem value={20}>20</MenuItem>
-              <MenuItem value={50}>50</MenuItem>
-            </Select>
-          </Stack>
-        </Stack>
-      )}
+      {/* Pagination */}
+      <TablePagination
+        component="div"
+        count={total}
+        page={page}
+        onPageChange={(_e, newPage) => setPage(newPage)}
+        rowsPerPage={limit}
+        onRowsPerPageChange={(e) => {
+          setLimit(parseInt(e.target.value, 10))
+          setPage(0)
+        }}
+        rowsPerPageOptions={[...PAGE_SIZE_OPTIONS]}
+      />
 
       {/* Confirmation Dialog: Reset Password */}
       <Dialog

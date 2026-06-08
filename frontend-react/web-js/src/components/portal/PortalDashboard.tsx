@@ -3,6 +3,7 @@ import {
   Box,
   Chip,
   CircularProgress,
+  Divider,
   IconButton,
   List,
   ListItem,
@@ -91,7 +92,7 @@ export function PortalDashboard({ welcomeName }: PortalDashboardProps) {
     let cancelled = false
     setLoading(true)
     setError(null)
-    getMyAttendance({ month })
+    getMyAttendance({ month, pageSize: 31 })
       .then((page) => {
         if (cancelled) return
         setData(page)
@@ -114,6 +115,21 @@ export function PortalDashboard({ welcomeName }: PortalDashboardProps) {
   const items: AttendanceItem[] = useMemo(() => data?.items ?? [], [data])
   const isCurrentMonth = month === currentMonth()
 
+  // Monthly totals computation: sum of missing_minutes and total_workday
+  const summary = useMemo(() => {
+    let missing = 0
+    let workday = 0
+    for (const item of items) {
+      missing += item.missing_minutes
+      workday += parseFloat(item.total_workday)
+    }
+    return {
+      totalMissingMinutes: missing,
+      totalWorkday: workday.toFixed(2),
+      daysCounted: items.length,
+    }
+  }, [items])
+
   return (
     <Box sx={{ px: { xs: 2, md: 4 }, py: 3 }}>
       <Stack spacing={3}>
@@ -133,6 +149,45 @@ export function PortalDashboard({ welcomeName }: PortalDashboardProps) {
           <Typography variant="body2" color="text.secondary">
             Attendance Summary - {formatMonthLabel(month)}
           </Typography>
+
+          {/* Monthly totals */}
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={{ xs: 1.5, sm: 4 }}
+            sx={{ mt: 2 }}
+            divider={
+              <Divider
+                orientation="vertical"
+                flexItem
+                sx={{ display: { xs: 'none', sm: 'block' } }}
+              />
+            }
+          >
+            <Box>
+              <Typography variant="caption" color="text.secondary">
+                Total Missing Minutes
+              </Typography>
+              <Typography variant="h6" fontWeight={700}>
+                {loading ? '—' : summary.totalMissingMinutes}
+              </Typography>
+            </Box>
+            <Box>
+              <Typography variant="caption" color="text.secondary">
+                Total Workday
+              </Typography>
+              <Typography variant="h6" fontWeight={700}>
+                {loading ? '—' : summary.totalWorkday}
+              </Typography>
+            </Box>
+            <Box>
+              <Typography variant="caption" color="text.secondary">
+                Days Counted
+              </Typography>
+              <Typography variant="h6" fontWeight={700}>
+                {loading ? '—' : summary.daysCounted}
+              </Typography>
+            </Box>
+          </Stack>
         </Paper>
 
         <Paper sx={{ border: '1px solid', borderColor: 'divider' }}>

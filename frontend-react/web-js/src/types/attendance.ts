@@ -52,3 +52,20 @@ export type AllAttendanceQuery = {
   page?: number
   pageSize?: number
 }
+
+export type EmployeeAttendanceSummary = {
+  employee: {
+    employee_id: number
+    email: string
+    full_name: string
+  }
+  total_missing_minutes: number
+  total_workday: string // sum of daily credits, 2 decimals
+  days_counted: number
+}
+
+export type AttendanceSummaryResponse = {
+  range: { from: string; to: string }
+  matched: number // number of distinct employees matching the search
+  summaries: EmployeeAttendanceSummary[]
+}

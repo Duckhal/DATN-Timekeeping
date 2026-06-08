@@ -34,6 +34,14 @@ export class AttendanceController {
     return this.attendanceService.listAllEmployeeAttendance(query);
   }
 
+  // HR — monthly aggregate (total missing_minutes + total_workday) for the
+  // employee(s) matching the `search` term within the resolved date range.
+  @Get('attendance/all/summary')
+  @Roles('HR')
+  summarizeAllEmployeeAttendance(@Query() query: QueryAllAttendanceDto) {
+    return this.attendanceService.summarizeEmployeeAttendance(query);
+  }
+
   // HR — read attendance for any employee.
   @Get('employees/:id/attendance')
   @Roles('HR')

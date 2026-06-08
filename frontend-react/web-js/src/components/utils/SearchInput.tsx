@@ -1,24 +1,45 @@
-// src/components/SearchInput.tsx
-import { useState, useEffect } from 'react'
+// src/components/utils/SearchInput.tsx
+import { useEffect, useRef, useState } from 'react'
 import { TextField, InputAdornment } from '@mui/material'
+import type { SxProps, Theme } from '@mui/material'
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 
 interface SearchInputProps {
   placeholder?: string
   onSearch: (value: string) => void
+  /** Debounce delay in ms before firing onSearch. Defaults to 300ms. */
+  debounceMs?: number
+  /** Initial text value of the field. */
+  initialValue?: string
+  /** Extra styles merged onto the TextField. */
+  sx?: SxProps<Theme>
 }
 
-export function SearchInput({ placeholder = 'Search...', onSearch }: SearchInputProps) {
-  const [value, setValue] = useState('')
+/**
+ * Debounced search field shared across list pages (Attendance, Employees,
+ * Credentials). Holds its own input value and only notifies the parent via
+ * onSearch after the user stops typing for `debounceMs`.
+ */
+export function SearchInput({
+  placeholder = 'Search…',
+  onSearch,
+  debounceMs = 300,
+  initialValue = '',
+  sx,
+}: SearchInputProps) {
+  const [value, setValue] = useState(initialValue)
+
+  // Keep the latest onSearch in a ref so parent re-renders (new callback
+  // identity each render) don't re-arm the debounce timer.
+  const onSearchRef = useRef(onSearch)
+  onSearchRef.current = onSearch
 
   useEffect(() => {
-    // Chờ người dùng dừng gõ phím 400ms rồi mới kích hoạt gọi hàm tìm kiếm
     const timer = setTimeout(() => {
-      onSearch(value)
-    }, 400)
-
+      onSearchRef.current(value)
+    }, debounceMs)
     return () => clearTimeout(timer)
-  }, [value, onSearch])
+  }, [value, debounceMs])
 
   return (
     <TextField
@@ -26,22 +47,16 @@ export function SearchInput({ placeholder = 'Search...', onSearch }: SearchInput
       placeholder={placeholder}
       value={value}
       onChange={(e) => setValue(e.target.value)}
-      InputProps={{
-        startAdornment: (
-          <InputAdornment position="start">
-            <SearchRoundedIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
-          </InputAdornment>
-        ),
-      }}
-      sx={{
-        width: '100%',
-        maxWidth: 400,
-        bgcolor: 'background.paper',
-        borderRadius: 1,
-        '& .MuiOutlinedInput-root': {
-          borderRadius: '8px',
+      slotProps={{
+        input: {
+          startAdornment: (
+            <InputAdornment position="start">
+              <SearchRoundedIcon sx={{ color: '#94A3B8', fontSize: 20 }} />
+            </InputAdornment>
+          ),
         },
       }}
+      sx={{ minWidth: 280, maxWidth: 360, ...sx }}
     />
-  );
+  )
 }
