@@ -5,3 +5,4 @@ export * from './checkin-log.type';
 export * from './daily-attendance.type';
 export * from './monthly-limit.type';
 export * from './request.type';
+export * from './payroll.type';

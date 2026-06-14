@@ -5,8 +5,13 @@ import {
   Button,
   Chip,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
   Paper,
+  Snackbar,
   Stack,
   Table,
   TableBody,
@@ -19,17 +24,20 @@ import {
   Typography,
 } from '@mui/material'
 import CalculateRoundedIcon from '@mui/icons-material/CalculateRounded'
+import PaidRoundedIcon from '@mui/icons-material/PaidRounded'
 import { SearchInput } from '../components/utils/SearchInput'
 import {
   getAllAttendanceLogs,
   getAttendanceSummary,
 } from '../apis/attendanceLogService'
+import { publishPayroll } from '../apis/payrollService'
 import type {
   AllAttendanceItem,
   AllAttendancePage,
   AttendanceStatusCode,
   EmployeeAttendanceSummary,
 } from '../types/attendance'
+import { getApiErrorMessage } from '../utils/getApiErrorMessage'
 
 // Constants
 const STATUS_LABEL: Record<AttendanceStatusCode, string> = {
@@ -94,6 +102,12 @@ export function AttendanceLogPage() {
   const [summary, setSummary] = useState<EmployeeAttendanceSummary | null>(null)
   const [summaryLoading, setSummaryLoading] = useState(false)
   const [summaryError, setSummaryError] = useState<string | null>(null)
+  const [publishConfirmOpen, setPublishConfirmOpen] = useState(false)
+  const [publishing, setPublishing] = useState(false)
+  const [snack, setSnack] = useState<{
+    message: string
+    severity: 'success' | 'error'
+  } | null>(null)
 
   // Debounced search now comes from the shared SearchInput component.
   const handleSearch = useCallback((value: string) => {
@@ -185,6 +199,26 @@ export function AttendanceLogPage() {
     }
   }, [month, debouncedSearch])
 
+  const handlePublishPayroll = useCallback(async () => {
+    if (!month) return
+    setPublishing(true)
+    try {
+      const result = await publishPayroll(month)
+      setPublishConfirmOpen(false)
+      setSnack({
+        message: `Published payroll for ${result.published_count} employee${result.published_count === 1 ? '' : 's'}.`,
+        severity: 'success',
+      })
+    } catch (err: unknown) {
+      setSnack({
+        message: getApiErrorMessage(err, 'Failed to publish payroll.'),
+        severity: 'error',
+      })
+    } finally {
+      setPublishing(false)
+    }
+  }, [month])
+
   return (
     <Box sx={{ px: { xs: 0, md: 1 }, py: 1 }}>
       <Stack spacing={2.5}>
@@ -252,6 +286,22 @@ export function AttendanceLogPage() {
                 sx={{ whiteSpace: 'nowrap' }}
               >
                 Calculate Total
+              </Button>
+
+              <Button
+                variant="outlined"
+                startIcon={
+                  publishing ? (
+                    <CircularProgress size={16} color="inherit" />
+                  ) : (
+                    <PaidRoundedIcon />
+                  )
+                }
+                disabled={!month || publishing}
+                onClick={() => setPublishConfirmOpen(true)}
+                sx={{ whiteSpace: 'nowrap' }}
+              >
+                Publish Payroll
               </Button>
             </Stack>
           </Stack>
@@ -447,6 +497,53 @@ export function AttendanceLogPage() {
             rowsPerPageOptions={[...PAGE_SIZE_OPTIONS]}
           />
         </Paper>
+
+        <Dialog
+          open={publishConfirmOpen}
+          onClose={() => !publishing && setPublishConfirmOpen(false)}
+          maxWidth="xs"
+          fullWidth
+        >
+          <DialogTitle>Publish Payroll</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary">
+              Publish payroll for {formatMonthLabel(month)} to all active
+              employees? Existing payroll records for this month will be
+              overwritten and employees will receive a new notification.
+            </Typography>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button
+              onClick={() => setPublishConfirmOpen(false)}
+              disabled={publishing}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              onClick={() => void handlePublishPayroll()}
+              disabled={publishing}
+            >
+              {publishing ? 'Publishing...' : 'Publish'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Snackbar
+          open={snack !== null}
+          autoHideDuration={3500}
+          onClose={() => setSnack(null)}
+        >
+          {snack ? (
+            <Alert
+              severity={snack.severity}
+              variant="filled"
+              onClose={() => setSnack(null)}
+            >
+              {snack.message}
+            </Alert>
+          ) : undefined}
+        </Snackbar>
       </Stack>
     </Box>
   )

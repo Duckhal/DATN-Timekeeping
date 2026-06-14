@@ -12,6 +12,7 @@ import { EmployeesPage } from './pages/EmployeesPage'
 import { RequestsPage } from './pages/RequestsPage'
 import { ApprovalsPage } from './pages/ApprovalsPage'
 import { AttendanceLogPage } from './pages/AttendanceLogPage'
+import { PayrollPage } from './pages/PayrollPage'
 import { AppThemeProvider } from './providers/theme/AppThemeProvider'
 import { MainLayout } from './components/layout/MainLayout'
 
@@ -33,6 +34,7 @@ function App() {
                   <Route path="/requests" element={<RequestsPage />} />
                   <Route path="/approvals" element={<ApprovalsPage />} />
                   <Route path="/attendance-log" element={<AttendanceLogPage />} />
+                  <Route path="/payroll/:payrollId" element={<PayrollPage />} />
                 </Route>
                 <Route path="/change-password" element={<ChangePasswordPage />} />
               </Route>

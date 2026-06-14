@@ -14,6 +14,7 @@ import { CheckinModule } from './checkin/checkin.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { RequestsModule } from './requests/requests.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { PayrollModule } from './payroll/payroll.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     AttendanceModule,
     RequestsModule,
     NotificationsModule,
+    PayrollModule,
   ],
   controllers: [AppController],
   providers: [AppService],

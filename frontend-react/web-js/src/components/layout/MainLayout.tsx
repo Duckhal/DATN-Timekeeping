@@ -33,8 +33,27 @@ import EventNoteRoundedIcon from '@mui/icons-material/EventNoteRounded'
 
 import { useAuth } from '../../hooks/useAuth'
 import { useNotifications } from '../../hooks/useNotifications'
+import type { NotificationItem } from '../../types/notification'
 
 const DRAWER_WIDTH = 260
+
+function getPayrollId(notification: NotificationItem): number | null {
+  if (notification.type !== 'PAYROLL') return null
+  if (typeof notification.reference_id === 'number') {
+    return notification.reference_id
+  }
+
+  if (!notification.metadata) return null
+
+  try {
+    const metadata = JSON.parse(notification.metadata) as {
+      payroll_id?: unknown
+    }
+    return typeof metadata.payroll_id === 'number' ? metadata.payroll_id : null
+  } catch {
+    return null
+  }
+}
 
 export function MainLayout() {
   const navigate = useNavigate()
@@ -66,6 +85,22 @@ export function MainLayout() {
       { label: 'My Requests', path: '/requests', icon: <AssessmentRoundedIcon /> },
     ]),
   ]
+
+  const handleNotificationClick = (notification: NotificationItem) => {
+    void (async () => {
+      try {
+        await handleMarkAsRead(notification.notification_id)
+      } catch (error) {
+        console.error('Failed to mark notification as read', error)
+      }
+
+      const payrollId = getPayrollId(notification)
+      if (payrollId !== null) {
+        setNotifAnchorEl(null)
+        navigate(`/payroll/${payrollId}`)
+      }
+    })()
+  }
 
   // Sidebar content (logo + menu + help box)
   const drawerContent = (
@@ -310,7 +345,7 @@ export function MainLayout() {
                 <ListItemButton
                   key={n.notification_id}
                   sx={{ bgcolor: n.is_read ? 'transparent' : 'action.hover' }}
-                  onClick={() => { void handleMarkAsRead(n.notification_id) }}
+                  onClick={() => handleNotificationClick(n)}
                 >
                   <ListItemText
                     primary={n.title}
