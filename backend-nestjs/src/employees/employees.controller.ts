@@ -14,6 +14,7 @@ import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { AssignRfidDto } from './dto/assign-rfid.dto';
 import { RemoveCredentialsDto } from './dto/remove-credentials.dto';
 import { QueryEmployeeDto } from './dto/query-employee.dto';
+import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { Roles } from '../auth/decorators/roles.decorator';
 
 @Controller('employees')
@@ -49,6 +50,15 @@ export class EmployeesController {
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.employeesService.findById(id);
+  }
+
+  @Patch(':id')
+  @Roles('MANAGER')
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateEmployeeDto,
+  ) {
+    return this.employeesService.updateProfile(id, dto);
   }
 
   @Patch(':id/credentials/rfid')

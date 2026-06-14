@@ -45,6 +45,12 @@ export type CreateEmployeeResponse = Employee & {
   generated_password: string
 }
 
+export type UpdateEmployeeRequest = {
+  full_name?: string
+  date_of_birth?: string | null
+  hourly_rate?: number
+}
+
 export type ResetPasswordResponse = Employee & {
   generated_password: string
 }

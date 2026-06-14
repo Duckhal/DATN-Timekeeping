@@ -4,6 +4,7 @@ import type {
   CreateEmployeeResponse,
   Employee,
   ResetPasswordResponse,
+  UpdateEmployeeRequest,
 } from '../types/auth'
 
 export interface PaginatedEmployees {
@@ -43,6 +44,14 @@ export async function resetEmployeePassword(
   const response = await apiClient.patch<ResetPasswordResponse>(
     `/employees/${id}/reset-password`,
   )
+  return response.data
+}
+
+export async function updateEmployee(
+  id: number,
+  payload: UpdateEmployeeRequest,
+): Promise<Employee> {
+  const response = await apiClient.patch<Employee>(`/employees/${id}`, payload)
   return response.data
 }
 

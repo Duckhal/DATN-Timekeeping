@@ -28,11 +28,13 @@ import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import LockResetRoundedIcon from '@mui/icons-material/LockResetRounded'
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
+import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import {
   createEmployee,
   deleteEmployee,
   getAllEmployees,
   resetEmployeePassword,
+  updateEmployee,
 } from '../apis/employeeService'
 import { SearchInput } from '../components/utils/SearchInput'
 import { useAuth } from '../hooks/useAuth'
@@ -43,6 +45,10 @@ const PAGE_SIZE_OPTIONS = [1, 10, 20, 50, 100] as const
 
 function formatRole(role: Employee['role']): string {
   return role === 'MANAGER' ? 'Manager' : 'Employee'
+}
+
+function toDateInputValue(value: string | null): string {
+  return value ? value.slice(0, 10) : ''
 }
 
 export function EmployeesPage() {
@@ -63,6 +69,14 @@ export function EmployeesPage() {
   const [formRate, setFormRate] = useState('')
   const [formDob, setFormDob] = useState('')
   const [creating, setCreating] = useState(false)
+
+  // Edit Employee Form Dialog State
+  const [editOpen, setEditOpen] = useState(false)
+  const [employeeToEdit, setEmployeeToEdit] = useState<Employee | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editRate, setEditRate] = useState('')
+  const [editDob, setEditDob] = useState('')
+  const [isUpdating, setIsUpdating] = useState(false)
 
   // Reset Password Confirmation Intermediary Modal States
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false)
@@ -137,6 +151,56 @@ export function EmployeesPage() {
       })
     } finally {
       setCreating(false)
+    }
+  }
+
+  const triggerEdit = (emp: Employee) => {
+    setEmployeeToEdit(emp)
+    setEditName(emp.full_name)
+    setEditRate(emp.hourly_rate)
+    setEditDob(toDateInputValue(emp.date_of_birth))
+    setEditOpen(true)
+  }
+
+  const closeEditDialog = () => {
+    if (isUpdating) return
+    setEditOpen(false)
+    setEmployeeToEdit(null)
+    setEditName('')
+    setEditRate('')
+    setEditDob('')
+  }
+
+  const handleUpdateEmployee = async () => {
+    if (!employeeToEdit || !editName.trim() || !editRate.trim()) return
+
+    const nextRate = Number(editRate)
+    if (!Number.isFinite(nextRate) || nextRate <= 0) {
+      setSnack({ message: 'Hourly rate must be a positive number', severity: 'error' })
+      return
+    }
+
+    setIsUpdating(true)
+    try {
+      await updateEmployee(employeeToEdit.employee_id, {
+        full_name: editName.trim(),
+        hourly_rate: nextRate,
+        date_of_birth: editDob || null,
+      })
+      setSnack({ message: 'Employee information updated', severity: 'success' })
+      setEditOpen(false)
+      setEmployeeToEdit(null)
+      setEditName('')
+      setEditRate('')
+      setEditDob('')
+      void fetchEmployees(page, limit, search)
+    } catch (err: unknown) {
+      setSnack({
+        message: getApiErrorMessage(err, 'Failed to update employee'),
+        severity: 'error',
+      })
+    } finally {
+      setIsUpdating(false)
     }
   }
 
@@ -279,6 +343,15 @@ export function EmployeesPage() {
                   </TableCell>
                   <TableCell align="center">
                     <Stack direction="row" spacing={0.5} justifyContent="center">
+                      <Tooltip title="Edit Employee">
+                        <IconButton
+                          size="small"
+                          color="primary"
+                          onClick={() => triggerEdit(emp)}
+                        >
+                          <EditRoundedIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
                       <Tooltip title="Reset Password">
                         <IconButton
                           size="small"
@@ -368,6 +441,57 @@ export function EmployeesPage() {
           </Button>
           <Button onClick={() => void handleExecuteSoftDelete()} color="error" variant="contained" disabled={isDeactivating} autoFocus>
             {isDeactivating ? 'Deactivating...' : 'Confirm Deactivation'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit Employee Dialog */}
+      <Dialog open={editOpen} onClose={closeEditDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>Edit Employee Information</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              label="Email (username)"
+              value={employeeToEdit?.email ?? ''}
+              disabled
+              fullWidth
+            />
+            <TextField
+              label="Full Name"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              required
+              fullWidth
+            />
+            <TextField
+              label="Hourly Rate"
+              type="number"
+              value={editRate}
+              onChange={(e) => setEditRate(e.target.value)}
+              required
+              fullWidth
+              inputProps={{ min: 0, step: 0.01 }}
+            />
+            <TextField
+              label="Date of Birth"
+              type="date"
+              value={editDob}
+              onChange={(e) => setEditDob(e.target.value)}
+              fullWidth
+              InputLabelProps={{ shrink: true }}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={closeEditDialog} disabled={isUpdating}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleUpdateEmployee}
+            disabled={isUpdating || !editName.trim() || !editRate.trim()}
+          >
+            {isUpdating ? 'Saving...' : 'Save Changes'}
           </Button>
         </DialogActions>
       </Dialog>

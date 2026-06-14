@@ -8,6 +8,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { MqttService } from '../mqtt/mqtt.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
+import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import type { AuthMethod, PublicEmployeeProfile } from '../types';
 import * as argon2 from 'argon2';
@@ -31,6 +32,12 @@ const SAFE_SELECT = {
 type EmployeeSafe = Omit<PublicEmployeeProfile, 'hourly_rate' | 'is_active'> & {
   hourly_rate: unknown;
   is_active: boolean;
+};
+
+type EditableEmployeeData = {
+  full_name?: string;
+  date_of_birth?: Date | null;
+  hourly_rate?: number;
 };
 
 @Injectable()
@@ -175,6 +182,64 @@ export class EmployeesService {
 
   async findByEmail(email: string) {
     return this.findByUsername(email);
+  }
+
+  async updateProfile(empId: number, dto: UpdateEmployeeDto) {
+    const existing = await this.findById(empId);
+
+    if (!existing.is_active) {
+      throw new BadRequestException(
+        'Inactive employee accounts cannot be edited.',
+      );
+    }
+
+    const data: EditableEmployeeData = {};
+
+    if (dto.full_name !== undefined) {
+      const fullName = dto.full_name.trim();
+      if (!fullName) {
+        throw new BadRequestException('full_name must not be empty.');
+      }
+      data.full_name = fullName;
+    }
+
+    if (dto.date_of_birth !== undefined) {
+      if (dto.date_of_birth === null) {
+        data.date_of_birth = null;
+      } else {
+        const parsedDate = new Date(dto.date_of_birth);
+        if (Number.isNaN(parsedDate.getTime())) {
+          throw new BadRequestException('date_of_birth must be a valid date.');
+        }
+        data.date_of_birth = parsedDate;
+      }
+    }
+
+    if (dto.hourly_rate !== undefined) {
+      if (!Number.isFinite(dto.hourly_rate) || dto.hourly_rate <= 0) {
+        throw new BadRequestException('hourly_rate must be a positive number.');
+      }
+      data.hourly_rate = dto.hourly_rate;
+    }
+
+    const fields = Object.keys(data);
+    if (fields.length === 0) {
+      throw new BadRequestException(
+        'At least one editable employee field is required.',
+      );
+    }
+
+    const employee = await this.prisma.employee.update({
+      where: { employee_id: empId },
+      data,
+      select: SAFE_SELECT,
+    });
+
+    this.logger.log(
+      `[UpdateEmployee] employee=${empId} fields=${fields.join(',')}`,
+    );
+
+    return this.toPublicEmployee(employee);
   }
 
   async assignRfid(empId: number, rfidTag: string) {
