@@ -25,6 +25,7 @@ import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded'
 import CancelRoundedIcon from '@mui/icons-material/CancelRounded'
 import { approveRequest, getPendingRequests, rejectRequest } from '../apis/requestService'
 import type { RequestItem } from '../types/request'
+import { getApiErrorMessage } from '../utils/getApiErrorMessage'
 
 const TYPE_COLOR: Record<string, 'info' | 'secondary' | 'default'> = {
   OT: 'info',
@@ -71,9 +72,11 @@ export function ApprovalsPage() {
       setConfirmAction(null)
       setConfirmTarget(null)
       void fetchPending()
-    } catch (err: any) {
-      const msg = err?.response?.data?.message ?? 'Action failed'
-      setSnack({ message: msg, severity: 'error' })
+    } catch (err: unknown) {
+      setSnack({
+        message: getApiErrorMessage(err, 'Action failed'),
+        severity: 'error',
+      })
     } finally {
       setSubmitting(false)
     }

@@ -37,8 +37,13 @@ import {
 import { SearchInput } from '../components/utils/SearchInput'
 import { useAuth } from '../hooks/useAuth'
 import type { Employee } from '../types/auth'
+import { getApiErrorMessage } from '../utils/getApiErrorMessage'
 
 const PAGE_SIZE_OPTIONS = [1, 10, 20, 50, 100] as const
+
+function formatRole(role: Employee['role']): string {
+  return role === 'MANAGER' ? 'Manager' : 'Employee'
+}
 
 export function EmployeesPage() {
   const { profile } = useAuth()
@@ -125,9 +130,11 @@ export function EmployeesPage() {
       setGeneratedFor(result.email)
       setPasswordDialogOpen(true)
       void fetchEmployees(page, limit, search)
-    } catch (err: any) {
-      const msg = err?.response?.data?.message ?? 'Failed to create employee'
-      setSnack({ message: msg, severity: 'error' })
+    } catch (err: unknown) {
+      setSnack({
+        message: getApiErrorMessage(err, 'Failed to create employee'),
+        severity: 'error',
+      })
     } finally {
       setCreating(false)
     }
@@ -151,9 +158,11 @@ export function EmployeesPage() {
       setGeneratedFor(result.email)
       setPasswordDialogOpen(true)
       void fetchEmployees(page, limit, search)
-    } catch (err: any) {
-      const msg = err?.response?.data?.message ?? 'Failed to reset password'
-      setSnack({ message: msg, severity: 'error' })
+    } catch (err: unknown) {
+      setSnack({
+        message: getApiErrorMessage(err, 'Failed to reset password'),
+        severity: 'error',
+      })
     } finally {
       setIsResetting(false)
     }
@@ -179,9 +188,11 @@ export function EmployeesPage() {
       const nextTargetPage = employees.length === 1 ? Math.max(0, page - 1) : page
       setPage(nextTargetPage)
       void fetchEmployees(nextTargetPage, limit, search)
-    } catch (err: any) {
-      const msg = err?.response?.data?.message ?? 'Failed to deactivate account'
-      setSnack({ message: msg, severity: 'error' })
+    } catch (err: unknown) {
+      setSnack({
+        message: getApiErrorMessage(err, 'Failed to deactivate account'),
+        severity: 'error',
+      })
     } finally {
       setIsDeactivating(false)
     }
@@ -229,7 +240,6 @@ export function EmployeesPage() {
               <TableCell>Email</TableCell>
               <TableCell>Full Name</TableCell>
               <TableCell>Role</TableCell>
-              <TableCell>Manager</TableCell>
               <TableCell>Status</TableCell>
               <TableCell align="center">Actions</TableCell>
             </TableRow>
@@ -237,13 +247,13 @@ export function EmployeesPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                <TableCell colSpan={6} align="center" sx={{ py: 4, color: 'text.secondary' }}>
                   Loading…
                 </TableCell>
               </TableRow>
             ) : (!employees || employees.length === 0) ? (
               <TableRow>
-                <TableCell colSpan={7} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                <TableCell colSpan={6} align="center" sx={{ py: 4, color: 'text.secondary' }}>
                   No employees found.
                 </TableCell>
               </TableRow>
@@ -256,11 +266,10 @@ export function EmployeesPage() {
                   <TableCell>
                     <Chip
                       size="small"
-                      label={emp.role}
-                      color={emp.role === 'HR' ? 'primary' : 'default'}
+                      label={formatRole(emp.role)}
+                      color={emp.role === 'MANAGER' ? 'primary' : 'default'}
                     />
                   </TableCell>
-                  <TableCell>{emp.manager?.email?.split('@')[0] ?? '—'}</TableCell>
                   <TableCell>
                     {emp.must_change_password ? (
                       <Chip size="small" label="Pending Setup" color="warning" />
@@ -279,11 +288,11 @@ export function EmployeesPage() {
                           <LockResetRoundedIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
-                      <Tooltip title={emp.role === 'HR' ? "Protected HR Account" : "Deactivate Employee"}>
+                      <Tooltip title={emp.role === 'MANAGER' ? "Protected Manager Account" : "Deactivate Employee"}>
                         <IconButton
                           size="small"
                           color="error"
-                          disabled={emp.employee_id === profile?.employee_id || emp.role === 'HR'}
+                          disabled={emp.employee_id === profile?.employee_id || emp.role === 'MANAGER'}
                           onClick={() => triggerDeleteConfirm(emp)}
                         >
                           <DeleteRoundedIcon fontSize="small" />
@@ -397,13 +406,6 @@ export function EmployeesPage() {
               onChange={(e) => setFormDob(e.target.value)}
               fullWidth
               InputLabelProps={{ shrink: true }}
-            />
-            <TextField
-              label="Manager (Approver)"
-              value={profile?.email?.split('@')[0] ?? ''}
-              fullWidth
-              InputProps={{ readOnly: true }}
-              helperText="Auto-assigned to the account creator"
             />
           </Stack>
         </DialogContent>

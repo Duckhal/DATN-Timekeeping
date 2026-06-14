@@ -32,7 +32,7 @@ export class CredentialsController {
   }
 
   @Post(':id/enroll-fingerprint/:employeeId')
-  @Roles('HR')
+  @Roles('MANAGER')
   startFingerprintEnroll(
     @Param('id', ParseIntPipe) id: number,
     @Param('employeeId', ParseIntPipe) employeeId: number,

@@ -46,7 +46,7 @@ export async function resetEmployeePassword(
   return response.data
 }
 
-export async function deleteEmployee(id: number): Promise<any> {
-  const response = await apiClient.delete<any>(`/employees/${id}`)
+export async function deleteEmployee(id: number): Promise<unknown> {
+  const response = await apiClient.delete<unknown>(`/employees/${id}`)
   return response.data
 }

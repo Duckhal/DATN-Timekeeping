@@ -90,23 +90,28 @@ export function PortalDashboard({ welcomeName }: PortalDashboardProps) {
 
   useEffect(() => {
     let cancelled = false
-    setLoading(true)
-    setError(null)
-    getMyAttendance({ month, pageSize: 31 })
-      .then((page) => {
+
+    const loadAttendance = async () => {
+      setLoading(true)
+      setError(null)
+
+      try {
+        const page = await getMyAttendance({ month, pageSize: 31 })
         if (cancelled) return
         setData(page)
-      })
-      .catch((err: unknown) => {
+      } catch (err: unknown) {
         if (cancelled) return
         const message =
           err instanceof Error ? err.message : 'Failed to load attendance.'
         setError(message)
         setData(null)
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setLoading(false)
-      })
+      }
+    }
+
+    void loadAttendance()
+
     return () => {
       cancelled = true
     }

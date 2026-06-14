@@ -22,7 +22,7 @@ export async function getAllAttendanceLogs(
   return response.data
 }
 
-// HR — monthly aggregate (total missing_minutes + total_workday)
+// Manager — monthly aggregate (total missing_minutes + total_workday)
 export async function getAttendanceSummary(
   query: AllAttendanceQuery = {},
 ): Promise<AttendanceSummaryResponse> {

@@ -186,7 +186,7 @@ export class AttendanceService {
   }
 
   /**
-   * HR — paginated attendance log for all employees with role EMPLOYEE.
+   * Manager — paginated attendance log for all employees with role EMPLOYEE.
    * Supports search by name/email and date range filtering.
    */
   async listAllEmployeeAttendance(
@@ -281,7 +281,7 @@ export class AttendanceService {
     });
 
     this.logger.log(
-      `[AttendanceLog] HR queried all attendance: search="${search}" range=${this.formatDate(from)}..${this.formatDate(to)} page=${page} pageSize=${pageSize} total=${total}`,
+      `[AttendanceLog] Manager queried all attendance: search="${search}" range=${this.formatDate(from)}..${this.formatDate(to)} page=${page} pageSize=${pageSize} total=${total}`,
     );
 
     return {
@@ -293,7 +293,7 @@ export class AttendanceService {
     };
   }
 
-  // HR — monthly aggregate (total missing_minutes + total_workday) for the
+  // Manager — monthly aggregate (total missing_minutes + total_workday) for the
   // employee(s) matching the `search` term within the resolved date range.
   async summarizeEmployeeAttendance(
     query: QueryAllAttendanceDto,
@@ -399,7 +399,7 @@ export class AttendanceService {
     );
 
     this.logger.log(
-      `[AttendanceLog] HR summary: search="${search}" range=${this.formatDate(from)}..${this.formatDate(to)} matched=${summaries.length}`,
+      `[AttendanceLog] Manager summary: search="${search}" range=${this.formatDate(from)}..${this.formatDate(to)} matched=${summaries.length}`,
     );
 
     return {

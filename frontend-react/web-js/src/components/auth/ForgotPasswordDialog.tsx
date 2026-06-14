@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import {
   Button,
   Dialog,
@@ -21,14 +21,18 @@ export function ForgotPasswordDialog({
 }: ForgotPasswordDialogProps) {
   const [email, setEmail] = useState('')
 
-  useEffect(() => {
-    if (!open) {
-      setEmail('')
-    }
-  }, [open])
+  const handleClose = () => {
+    setEmail('')
+    onClose()
+  }
+
+  const handleSubmit = () => {
+    onSubmit(email)
+    setEmail('')
+  }
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
+    <Dialog open={open} onClose={handleClose} fullWidth maxWidth="xs">
       <DialogTitle>Forgot Password</DialogTitle>
       <DialogContent>
         <TextField
@@ -42,9 +46,9 @@ export function ForgotPasswordDialog({
         />
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={handleClose}>Cancel</Button>
         <Button
-          onClick={() => onSubmit(email)}
+          onClick={handleSubmit}
           variant="contained"
           disabled={!email.trim()}
         >

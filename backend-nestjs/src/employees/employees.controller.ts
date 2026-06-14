@@ -8,7 +8,6 @@ import {
   Patch,
   Post,
   Query,
-  Req,
 } from '@nestjs/common';
 import { EmployeesService } from './employees.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
@@ -17,20 +16,18 @@ import { RemoveCredentialsDto } from './dto/remove-credentials.dto';
 import { QueryEmployeeDto } from './dto/query-employee.dto';
 import { Roles } from '../auth/decorators/roles.decorator';
 
-type JwtRequest = { user: { employee_id: number } };
-
 @Controller('employees')
 export class EmployeesController {
   constructor(private readonly employeesService: EmployeesService) {}
 
   @Post()
-  @Roles('HR')
-  create(@Req() req: JwtRequest, @Body() dto: CreateEmployeeDto) {
-    return this.employeesService.create(dto, req.user.employee_id);
+  @Roles('MANAGER')
+  create(@Body() dto: CreateEmployeeDto) {
+    return this.employeesService.create(dto);
   }
 
   @Get()
-  @Roles('HR')
+  @Roles('MANAGER')
   findAll(@Query() query: QueryEmployeeDto) {
     return this.employeesService.findAll({
       page: Number(query.page ?? 1),
@@ -40,7 +37,7 @@ export class EmployeesController {
   }
 
   @Get('unassigned-credentials')
-  @Roles('HR')
+  @Roles('MANAGER')
   findUnassignedCredentials(@Query() query: QueryEmployeeDto) {
     return this.employeesService.findUnassignedCredentials({
       page: Number(query.page ?? 1),
@@ -55,7 +52,7 @@ export class EmployeesController {
   }
 
   @Patch(':id/credentials/rfid')
-  @Roles('HR')
+  @Roles('MANAGER')
   assignRfid(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: AssignRfidDto,
@@ -64,13 +61,13 @@ export class EmployeesController {
   }
 
   @Patch(':id/reset-password')
-  @Roles('HR')
+  @Roles('MANAGER')
   resetPassword(@Param('id', ParseIntPipe) id: number) {
     return this.employeesService.resetPassword(id);
   }
 
   @Delete(':id/credentials')
-  @Roles('HR')
+  @Roles('MANAGER')
   removeCredentials(
     @Param('id', ParseIntPipe) id: number,
     @Query() query: RemoveCredentialsDto,
@@ -79,7 +76,7 @@ export class EmployeesController {
   }
 
   @Delete(':id')
-  @Roles('HR')
+  @Roles('MANAGER')
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.employeesService.softDeleteEmployee(id);
   }

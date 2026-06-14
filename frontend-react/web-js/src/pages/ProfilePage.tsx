@@ -25,6 +25,10 @@ function Field({ label, value }: { label: string; value: string }) {
   )
 }
 
+function formatRole(role: Employee['role']): string {
+  return role === 'MANAGER' ? 'Manager' : 'Employee'
+}
+
 export function ProfilePage() {
   const [profile, setProfile] = useState<Employee | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -99,7 +103,7 @@ export function ProfilePage() {
                 <Field label="Email" value={profile.email} />
               </Box>
               <Box>
-                <Field label="Role" value={profile.role} />
+                <Field label="Role" value={formatRole(profile.role)} />
               </Box>
               <Box>
                 <Field

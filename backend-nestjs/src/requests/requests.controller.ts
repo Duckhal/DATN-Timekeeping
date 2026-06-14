@@ -13,6 +13,7 @@ import { RequestsService } from './requests.service';
 import { CreateOtRequestDto } from './dto/create-ot-request.dto';
 import { CreateExplanationRequestDto } from './dto/create-explanation-request.dto';
 import { QueryRequestsDto } from './dto/query-requests.dto';
+import { Roles } from '../auth/decorators/roles.decorator';
 
 type JwtRequest = { user: { employee_id: number; role: string } };
 
@@ -36,16 +37,19 @@ export class RequestsController {
   }
 
   @Get('pending')
+  @Roles('MANAGER')
   findPending(@Req() req: JwtRequest, @Query() query: QueryRequestsDto) {
-    return this.requestsService.findPendingForManager(req.user.employee_id, req.user.role, query);
+    return this.requestsService.findPendingForManager(req.user.role, query);
   }
 
   @Patch(':id/approve')
+  @Roles('MANAGER')
   approve(@Req() req: JwtRequest, @Param('id', ParseIntPipe) id: number) {
     return this.requestsService.approveRequest(id, req.user.employee_id, req.user.role);
   }
 
   @Patch(':id/reject')
+  @Roles('MANAGER')
   reject(@Req() req: JwtRequest, @Param('id', ParseIntPipe) id: number) {
     return this.requestsService.rejectRequest(id, req.user.employee_id, req.user.role);
   }

@@ -12,7 +12,6 @@ import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import type { AuthMethod, PublicEmployeeProfile } from '../types';
 import * as argon2 from 'argon2';
 import * as crypto from 'crypto';
-import { Prisma } from '@prisma/client/scripts/default-index.js';
 
 const SAFE_SELECT = {
   employee_id: true,
@@ -25,8 +24,6 @@ const SAFE_SELECT = {
   template_fingerprint: true,
   must_change_password: true,
   is_active: true,
-  manager_id: true,
-  manager: { select: { employee_id: true, email: true, full_name: true } },
   created_at: true,
   updated_at: true,
 };
@@ -55,7 +52,7 @@ export class EmployeesService {
     return password;
   }
 
-  async create(dto: CreateEmployeeDto, creatorId: number) {
+  async create(dto: CreateEmployeeDto) {
     const generatedPassword = this.generatePassword();
     const password_hash = await argon2.hash(generatedPassword);
 
@@ -65,13 +62,12 @@ export class EmployeesService {
           email: dto.email,
           password_hash,
           full_name: dto.full_name,
-          role: dto.role,
+          role: dto.role ?? 'EMPLOYEE',
           hourly_rate: dto.hourly_rate,
           date_of_birth: dto.date_of_birth
             ? new Date(dto.date_of_birth)
             : undefined,
           must_change_password: true,
-          manager_id: creatorId,
         },
         select: SAFE_SELECT,
       });
@@ -210,7 +206,7 @@ export class EmployeesService {
       select: SAFE_SELECT,
     });
 
-    this.logger.log(`[ResetPassword] employee=${empId} password reset by HR`);
+    this.logger.log(`[ResetPassword] employee=${empId} password reset by Manager`);
 
     return {
       ...this.toPublicEmployee(employee),
@@ -286,9 +282,9 @@ export class EmployeesService {
     // 1. Verify if the target employee profile strictly exists in the system
     const targetEmployee = await this.findById(empId);
 
-    if (targetEmployee.role === 'HR') {
+    if (targetEmployee.role === 'MANAGER') {
       throw new BadRequestException(
-        'Administrative protection error: HR accounts cannot be deactivated or deleted via this panel.',
+        'Administrative protection error: Manager accounts cannot be deactivated or deleted via this panel.',
       );
     }
 
@@ -367,8 +363,6 @@ export class EmployeesService {
       template_fingerprint: employee.template_fingerprint,
       must_change_password: employee.must_change_password,
       is_active: employee.is_active,
-      manager_id: employee.manager_id,
-      manager: employee.manager ?? null,
       created_at: employee.created_at,
       updated_at: employee.updated_at,
     };

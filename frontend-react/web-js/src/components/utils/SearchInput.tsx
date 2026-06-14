@@ -32,7 +32,10 @@ export function SearchInput({
   // Keep the latest onSearch in a ref so parent re-renders (new callback
   // identity each render) don't re-arm the debounce timer.
   const onSearchRef = useRef(onSearch)
-  onSearchRef.current = onSearch
+
+  useEffect(() => {
+    onSearchRef.current = onSearch
+  }, [onSearch])
 
   useEffect(() => {
     const timer = setTimeout(() => {

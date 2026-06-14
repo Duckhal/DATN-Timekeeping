@@ -1,8 +1,8 @@
-export const ROLE_VALUES = ['HR', 'EMPLOYEE'] as const;
+export const ROLE_VALUES = ['MANAGER', 'EMPLOYEE'] as const;
 export type Role = (typeof ROLE_VALUES)[number];
 
-export const CALC_STATUS_VALUES = ['SHORTHOURS', 'DAYOFF', 'COMPLETED'] as const;
-export type CalcStatus = 'SHORTHOURS' | 'DAYOFF' | 'COMPLETED';
+export const CALC_STATUS_VALUES = ['SHORTHOURS', 'DAYOFF', 'COMPLETED', 'WEEKEND'] as const;
+export type CalcStatus = (typeof CALC_STATUS_VALUES)[number];
 
 export const REQUEST_TYPE_VALUES = ['OT', 'EXPLANATION', 'LEAVE'] as const;
 export type RequestType = 'OT' | 'EXPLANATION' | 'LEAVE';

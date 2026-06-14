@@ -33,8 +33,8 @@ import {
   getMissingCheckoutDays,
   getMyRequests,
 } from '../apis/requestService'
-import { useAuth } from '../hooks/useAuth'
 import type { MissingCheckoutDay, RequestItem, RequestType } from '../types/request'
+import { getApiErrorMessage } from '../utils/getApiErrorMessage'
 
 const STATUS_COLOR: Record<string, 'warning' | 'success' | 'error' | 'default'> = {
   PENDING: 'warning',
@@ -43,8 +43,6 @@ const STATUS_COLOR: Record<string, 'warning' | 'success' | 'error' | 'default'> 
 }
 
 export function RequestsPage() {
-  const { profile } = useAuth()
-  const managerName = profile?.manager?.email?.split('@')[0] ?? '—'
   const [tab, setTab] = useState<0 | 1>(0)
   const [requests, setRequests] = useState<RequestItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -101,9 +99,11 @@ export function RequestsPage() {
       setOtDate(new Date().toISOString().slice(0, 10))
       setSnack({ message: 'OT request created', severity: 'success' })
       void fetchRequests()
-    } catch (err: any) {
-      const msg = err?.response?.data?.message ?? 'Failed to create OT request'
-      setSnack({ message: msg, severity: 'error' })
+    } catch (err: unknown) {
+      setSnack({
+        message: getApiErrorMessage(err, 'Failed to create OT request'),
+        severity: 'error',
+      })
     } finally {
       setOtSubmitting(false)
     }
@@ -135,9 +135,14 @@ export function RequestsPage() {
       setExpNeedsEndTime(false)
       setSnack({ message: 'Explanation request created', severity: 'success' })
       void fetchRequests()
-    } catch (err: any) {
-      const msg = err?.response?.data?.message ?? 'Failed to create explanation request'
-      setSnack({ message: msg, severity: 'error' })
+    } catch (err: unknown) {
+      setSnack({
+        message: getApiErrorMessage(
+          err,
+          'Failed to create explanation request',
+        ),
+        severity: 'error',
+      })
     } finally {
       setExpSubmitting(false)
     }
@@ -212,7 +217,6 @@ export function RequestsPage() {
         <DialogTitle>New OT Request</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField label="Approver" value={managerName} fullWidth InputProps={{ readOnly: true }} />
             <TextField
               label="Date"
               type="date"
@@ -248,7 +252,6 @@ export function RequestsPage() {
         <DialogTitle>New Explanation Request</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField label="Approver" value={managerName} fullWidth InputProps={{ readOnly: true }} />
             <FormControl fullWidth required>
               <InputLabel>Day (missing checkout)</InputLabel>
               <Select

@@ -7,7 +7,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 type JwtRequest = {
   user: {
     employee_id: number;
-    role: 'HR' | 'EMPLOYEE';
+    role: 'MANAGER' | 'EMPLOYEE';
   };
 };
 
@@ -27,24 +27,24 @@ export class AttendanceController {
     return this.attendanceService.findMissingCheckoutDays(req.user.employee_id);
   }
 
-  // HR — paginated attendance log for all employees.
+  // Manager — paginated attendance log for all employees.
   @Get('attendance/all')
-  @Roles('HR')
+  @Roles('MANAGER')
   findAllEmployeeAttendance(@Query() query: QueryAllAttendanceDto) {
     return this.attendanceService.listAllEmployeeAttendance(query);
   }
 
-  // HR — monthly aggregate (total missing_minutes + total_workday) for the
+  // Manager — monthly aggregate (total missing_minutes + total_workday) for the
   // employee(s) matching the `search` term within the resolved date range.
   @Get('attendance/all/summary')
-  @Roles('HR')
+  @Roles('MANAGER')
   summarizeAllEmployeeAttendance(@Query() query: QueryAllAttendanceDto) {
     return this.attendanceService.summarizeEmployeeAttendance(query);
   }
 
-  // HR — read attendance for any employee.
+  // Manager — read attendance for any employee.
   @Get('employees/:id/attendance')
-  @Roles('HR')
+  @Roles('MANAGER')
   findForEmployee(
     @Param('id', ParseIntPipe) id: number,
     @Query() query: QueryAttendanceDto,

@@ -1,27 +1,11 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { io, Socket } from 'socket.io-client'
 import { useAuth } from '../hooks/useAuth'
 import { getNotifications, getUnreadCount, markAllAsRead, markAsRead } from '../apis/notificationService'
 import type { NotificationItem } from '../types/notification'
 import { AUTH_TOKEN_KEY } from '../apis/axios'
-
-type NotificationContextType = {
-  unreadCount: number
-  notifications: NotificationItem[]
-  loading: boolean
-  fetchNotifications: () => Promise<void>
-  handleMarkAsRead: (id: number) => Promise<void>
-  handleMarkAllAsRead: () => Promise<void>
-}
-
-const NotificationContext = createContext<NotificationContextType | null>(null)
-
-export function useNotifications() {
-  const ctx = useContext(NotificationContext)
-  if (!ctx) throw new Error('useNotifications must be used within NotificationProvider')
-  return ctx
-}
+import { NotificationContext } from './NotificationContextValue'
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated, isBootstrapping } = useAuth()

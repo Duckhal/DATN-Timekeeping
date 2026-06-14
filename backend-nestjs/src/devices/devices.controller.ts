@@ -28,13 +28,13 @@ export class DevicesController {
   }
 
   @Get()
-  @Roles('HR')
+  @Roles('MANAGER')
   findAll() {
     return this.devicesService.findAll();
   }
 
   @Patch(':id')
-  @Roles('HR')
+  @Roles('MANAGER')
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateDeviceDto,
@@ -43,13 +43,13 @@ export class DevicesController {
   }
 
   @Delete(':id')
-  @Roles('HR')
+  @Roles('MANAGER')
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.devicesService.remove(id);
   }
 
   @Post(':id/bulk-sync')
-  @Roles('HR')
+  @Roles('MANAGER')
   triggerBulkSync(@Param('id', ParseIntPipe) id: number) {
     return this.devicesService.triggerBulkSync(id);
   }

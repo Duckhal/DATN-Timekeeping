@@ -1,27 +1,11 @@
-import { createContext, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { PropsWithChildren } from 'react'
 import { AxiosError } from 'axios'
 import { AUTH_TOKEN_KEY } from '../apis/axios'
 import { getMe, login as loginRequest } from '../apis/authService'
 import type { Employee } from '../types/auth'
-
-type LoginResult = {
-  ok: boolean
-  message?: string
-  mustChangePassword?: boolean
-}
-
-type AuthContextValue = {
-  isBootstrapping: boolean
-  isAuthenticated: boolean
-  requiresPasswordChange: boolean
-  profile: Employee | null
-  login: (email: string, password: string) => Promise<LoginResult>
-  logout: () => void
-  onPasswordChanged: (token: string, user: Employee) => void
-}
-
-export const AuthContext = createContext<AuthContextValue | null>(null)
+import { AuthContext } from './AuthContextValue'
+import type { AuthContextValue } from './AuthContextValue'
 
 export function AuthProvider({ children }: PropsWithChildren) {
   const [isBootstrapping, setIsBootstrapping] = useState(true)

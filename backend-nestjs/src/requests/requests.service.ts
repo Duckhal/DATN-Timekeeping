@@ -187,18 +187,14 @@ export class RequestsService {
     return { items: rows.map((r) => this.formatRequest(r)), page, pageSize, total };
   }
 
-  async findPendingForManager(actorId: number, actorRole: string, query: QueryRequestsDto) {
+  async findPendingForManager(actorRole: string, query: QueryRequestsDto) {
+    this.assertManager(actorRole);
+
     const page = query.page ?? 1;
     const pageSize = Math.min(query.pageSize ?? 20, 100);
 
     const where: any = { status: 'PENDING' as RequestStatus };
     if (query.type) where.type = query.type;
-
-    if (actorRole === 'HR') {
-      // HR sees all pending
-    } else {
-      where.employee = { manager_id: actorId };
-    }
 
     const [total, rows] = await this.prisma.$transaction([
       this.prisma.request.count({ where }),
@@ -215,16 +211,15 @@ export class RequestsService {
   }
 
   async approveRequest(requestId: number, actorId: number, actorRole: string) {
+    this.assertManager(actorRole);
+
     const request = await this.prisma.request.findUnique({
       where: { request_id: requestId },
-      include: { employee: { select: { manager_id: true } } },
     });
     if (!request) throw new NotFoundException('Request not found.');
     if (request.status !== 'PENDING') {
       throw new BadRequestException('Only PENDING requests can be approved.');
     }
-
-    this.authorizeManager(request.employee.manager_id, actorId, actorRole);
 
     if (request.type === 'EXPLANATION') {
       return this.approveExplanation(request);
@@ -320,16 +315,15 @@ export class RequestsService {
   }
 
   async rejectRequest(requestId: number, actorId: number, actorRole: string) {
+    this.assertManager(actorRole);
+
     const request = await this.prisma.request.findUnique({
       where: { request_id: requestId },
-      include: { employee: { select: { manager_id: true } } },
     });
     if (!request) throw new NotFoundException('Request not found.');
     if (request.status !== 'PENDING') {
       throw new BadRequestException('Only PENDING requests can be rejected.');
     }
-
-    this.authorizeManager(request.employee.manager_id, actorId, actorRole);
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const result = await tx.request.update({
@@ -359,10 +353,9 @@ export class RequestsService {
     return this.formatRequest(updated);
   }
 
-  private authorizeManager(employeeManagerId: number | null, actorId: number, actorRole: string) {
-    if (actorRole === 'HR') return;
-    if (employeeManagerId !== actorId) {
-      throw new ForbiddenException('You are not the manager of this employee.');
+  private assertManager(actorRole: string) {
+    if (actorRole !== 'MANAGER') {
+      throw new ForbiddenException('Only Manager users can perform this action.');
     }
   }
 

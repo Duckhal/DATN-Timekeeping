@@ -12,11 +12,8 @@ export type Employee = {
   template_fingerprint: string | null;
   must_change_password: boolean;
   is_active: boolean;
-  manager_id: number | null;
   created_at: Date;
   updated_at: Date;
 };
 
-export type PublicEmployeeProfile = Omit<Employee, 'password_hash'> & {
-  manager?: { employee_id: number; email: string; full_name: string } | null;
-};
+export type PublicEmployeeProfile = Omit<Employee, 'password_hash'>;

@@ -32,7 +32,7 @@ import MenuRoundedIcon from '@mui/icons-material/MenuRounded'
 import EventNoteRoundedIcon from '@mui/icons-material/EventNoteRounded'
 
 import { useAuth } from '../../hooks/useAuth'
-import { useNotifications } from '../../contexts/NotificationContext'
+import { useNotifications } from '../../hooks/useNotifications'
 
 const DRAWER_WIDTH = 260
 
@@ -56,7 +56,7 @@ export function MainLayout() {
 
   const menuItems = [
     { label: 'Portal', path: '/portal', icon: <HomeRoundedIcon /> },
-    ...(profile?.role === 'HR' ? [
+    ...(profile?.role === 'MANAGER' ? [
       { label: 'Employees', path: '/employees', icon: <PeopleAltRoundedIcon /> },
       { label: 'Devices', path: '/devices', icon: <DevicesRoundedIcon /> },
       { label: 'Authentication', path: '/credentials', icon: <VpnKeyRoundedIcon /> },
@@ -250,7 +250,7 @@ export function MainLayout() {
                     {welcomeName}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {profile?.role ?? 'Employee'}
+                    {profile?.role === 'MANAGER' ? 'Manager' : 'Employee'}
                   </Typography>
                 </Box>
               )}
