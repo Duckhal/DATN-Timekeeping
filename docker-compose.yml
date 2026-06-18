@@ -9,7 +9,7 @@ services:
       POSTGRES_DB: timekeeping
       TZ: Asia/Ho_Chi_Minh
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d timekeeping"]
       interval: 10s
