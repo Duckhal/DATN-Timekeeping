@@ -44,19 +44,19 @@ namespace network {
 #ifdef WIFI_SSID
   constexpr const char* kDefaultSsid = WIFI_SSID;
 #else
-  constexpr const char* kDefaultSsid = "Wifi_Mac_Dinh";
+  constexpr const char* kDefaultSsid = "GalaxyA53";
 #endif
 
 #ifdef WIFI_PASS
   constexpr const char* kDefaultPassword = WIFI_PASS;
 #else
-  constexpr const char* kDefaultPassword = "Mat_Khau_Mac_Dinh";
+  constexpr const char* kDefaultPassword = "oysl4029";
 #endif
 
 #ifdef SERVER_IP
   constexpr const char* kDefaultServerIp = SERVER_IP;
 #else
-  constexpr const char* kDefaultServerIp = "192.168.1.100";
+  constexpr const char* kDefaultServerIp = "192.168.168.16";
 #endif
 
 #ifdef DEVICE_API_KEY

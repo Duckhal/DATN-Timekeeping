@@ -1,27 +1,34 @@
-FROM node:20-alpine
+FROM node:20-alpine AS deps
 
 WORKDIR /app
 
-# Install dependencies first to leverage Docker cache
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# Install dependencies using npm ci for a clean install
 RUN npm ci
 
-# Copy the rest of the application source code
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Generate Prisma client
 RUN npx prisma generate
-
-# Build the NestJS application (Nest CLI sẽ ăn theo outDir chuẩn vừa sửa ở trên)
 RUN npm run build
+RUN npm prune --omit=dev
 
-# Debug: List the contents of the dist directory to verify the build output
-RUN ls -la /app/dist
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+ENV NODE_ENV=production
+
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/storage ./storage
 
 EXPOSE 3000
 
-# SỬA DÒNG NÀY: Bỏ prisma migrate deploy, chạy trực tiếp file main bằng node
 CMD ["node", "dist/src/main.js"]

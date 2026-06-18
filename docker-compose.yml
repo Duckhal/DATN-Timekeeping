@@ -1,59 +1,59 @@
-version: '3.8'
-
 services:
-  # A. PostgreSQL
   postgres-db:
     image: postgres:18-alpine
     container_name: timekeeping-postgres
-    restart: always
+    restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: timekeeping
       TZ: Asia/Ho_Chi_Minh
     volumes:
-      - postgres_data:/var/lib/postgresql
-    ports:
-      - "5432:5432"
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d timekeeping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  # B. EMQX Broker (MQTT)
   emqx-broker:
-    image: emqx/emqx:latest
+    image: emqx/emqx:6.0.0
     container_name: timekeeping-emqx
-    restart: always
+    restart: unless-stopped
     ports:
       - "1883:1883"
       - "8083:8083"
-      - "18083:18083" 
+      - "18083:18083"
     volumes:
       - emqx_data:/opt/emqx/data
       - emqx_log:/opt/emqx/log
 
-  # C. Backend NestJS
   backend:
     build:
       context: ./backend-nestjs
       dockerfile: Dockerfile
     container_name: timekeeping-backend
-    restart: always
+    restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
-      - PORT=3000
-      - DATABASE_URL=postgresql://postgres:${DB_PASSWORD}@postgres-db:5432/timekeeping?schema=public
-      - MQTT_BROKER_URL=mqtt://emqx-broker:1883
-      - JWT_SECRET=${JWT_SECRET}
-      - JWT_EXPIRES_IN=1h
-      - DEVICE_API_KEY=${DEVICE_API_KEY}
-      - TZ=Asia/Ho_Chi_Minh
+      PORT: 3000
+      DATABASE_URL: postgresql://postgres:${DB_PASSWORD}@postgres-db:5432/timekeeping?schema=public
+      MQTT_BROKER_URL: mqtt://emqx-broker:1883
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: 168h
+      DEVICE_API_KEY: ${DEVICE_API_KEY}
+      TZ: Asia/Ho_Chi_Minh
     depends_on:
-      - postgres-db
-      - emqx-broker
+      postgres-db:
+        condition: service_healthy
+      emqx-broker:
+        condition: service_started
     volumes:
-      - /app/node_modules
-      - /app/dist
+      - payroll_storage:/app/storage
 
 volumes:
   postgres_data:
   emqx_data:
   emqx_log:
+  payroll_storage:

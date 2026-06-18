@@ -28,18 +28,18 @@ BuzzerDriver::BuzzerDriver(uint8_t pin)
 
 void BuzzerDriver::begin() {
   pinMode(pin_, OUTPUT);
-  digitalWrite(pin_, LOW);
-  // Startup test beep to confirm hardware works in full app context
   digitalWrite(pin_, HIGH);
-  delay(50);
+  // Startup test beep to confirm hardware works in full app context
   digitalWrite(pin_, LOW);
+  delay(50);
+  digitalWrite(pin_, HIGH);
 }
 
 void BuzzerDriver::update() {
   if (state_ != State::PLAYING) return;
 
   if (stepIndex_ >= patternLen_) {
-    digitalWrite(pin_, LOW);
+    digitalWrite(pin_, HIGH);
     state_ = State::IDLE;
     return;
   }
@@ -48,11 +48,11 @@ void BuzzerDriver::update() {
   if (now - stepStartMs_ >= pattern_[stepIndex_].durationMs) {
     stepIndex_++;
     if (stepIndex_ >= patternLen_) {
-      digitalWrite(pin_, LOW);
+      digitalWrite(pin_, HIGH);
       state_ = State::IDLE;
       return;
     }
-    digitalWrite(pin_, pattern_[stepIndex_].on ? HIGH : LOW);
+    digitalWrite(pin_, pattern_[stepIndex_].on ? LOW : HIGH);
     stepStartMs_ = now;
   }
 }
@@ -75,7 +75,7 @@ void BuzzerDriver::startPattern(const Step* steps, uint8_t count) {
   stepIndex_ = 0;
   stepStartMs_ = millis();
   state_ = State::PLAYING;
-  digitalWrite(pin_, steps[0].on ? HIGH : LOW);
+  digitalWrite(pin_, steps[0].on ? LOW : HIGH);
 }
 
 }  // namespace tk::drivers
