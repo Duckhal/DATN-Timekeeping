@@ -27,7 +27,8 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/storage ./storage
+
+RUN mkdir -p ./storage
 
 EXPOSE 3000
 
