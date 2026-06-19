@@ -41,6 +41,10 @@ export type RequestsQuery = {
   pageSize?: number
 }
 
+export type ManagerRequestsQuery = RequestsQuery & {
+  search?: string
+}
+
 export type MissingCheckoutDay = {
   attendance_id: string
   date: string

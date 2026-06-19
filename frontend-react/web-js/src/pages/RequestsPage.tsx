@@ -41,6 +41,7 @@ const STATUS_COLOR: Record<string, 'warning' | 'success' | 'error' | 'default'> 
   APPROVED: 'success',
   REJECTED: 'error',
 }
+const TIME_24H_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/
 
 export function RequestsPage() {
   const [tab, setTab] = useState<0 | 1>(0)
@@ -71,6 +72,9 @@ export function RequestsPage() {
   const [snack, setSnack] = useState<{ message: string; severity: 'success' | 'error' } | null>(null)
 
   const currentType: RequestType = tab === 0 ? 'OT' : 'EXPLANATION'
+  const isExpEndTimeMissing = expEndTime.trim() === ''
+  const isExpEndTimeFormatInvalid = expEndTime !== '' && !TIME_24H_PATTERN.test(expEndTime)
+  const isExpEndTimeInvalid = isExpEndTimeMissing || isExpEndTimeFormatInvalid
 
   const fetchRequests = useCallback(async () => {
     setLoading(true)
@@ -119,13 +123,13 @@ export function RequestsPage() {
   }
 
   const handleCreateExplanation = async () => {
-    if (!expAttendanceId || !expReason.trim()) return
+    if (!expAttendanceId || !expReason.trim() || isExpEndTimeInvalid) return
     setExpSubmitting(true)
     try {
       await createExplanationRequest({
         attendance_id: Number(expAttendanceId),
         reason: expReason.trim(),
-        end_time: expEndTime || undefined,
+        end_time: expEndTime,
       })
       setExpOpen(false)
       setExpReason('')
@@ -278,12 +282,23 @@ export function RequestsPage() {
             />
             <TextField
               label="Actual departure time"
-              type="time"
+              placeholder="HH:mm"
               value={expEndTime}
               onChange={(e) => setExpEndTime(e.target.value)}
               fullWidth
+              required
               InputLabelProps={{ shrink: true }}
-              helperText="Leave blank to use 17:30 for non-OT days. Required if this day has approved OT."
+              error={isExpEndTimeFormatInvalid}
+              inputProps={{
+                inputMode: 'numeric',
+                maxLength: 5,
+                pattern: '([01]\\d|2[0-3]):[0-5]\\d',
+              }}
+              helperText={
+                isExpEndTimeFormatInvalid
+                  ? 'Use 24-hour format HH:mm, for example 06:30 or 17:45.'
+                  : 'Required'
+              }
             />
           </Stack>
         </DialogContent>
@@ -292,7 +307,7 @@ export function RequestsPage() {
           <Button
             variant="contained"
             onClick={handleCreateExplanation}
-            disabled={expSubmitting || !expAttendanceId || !expReason.trim()}
+            disabled={expSubmitting || !expAttendanceId || !expReason.trim() || isExpEndTimeInvalid}
           >
             {expSubmitting ? 'Submitting…' : 'Submit'}
           </Button>

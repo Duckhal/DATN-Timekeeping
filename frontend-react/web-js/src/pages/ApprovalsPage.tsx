@@ -8,8 +8,12 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControl,
   IconButton,
+  InputLabel,
+  MenuItem,
   Paper,
+  Select,
   Snackbar,
   Stack,
   Table,
@@ -17,46 +21,94 @@ import {
   TableCell,
   TableContainer,
   TableHead,
+  TablePagination,
   TableRow,
   Tooltip,
   Typography,
 } from '@mui/material'
+import type { SelectChangeEvent } from '@mui/material'
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded'
 import CancelRoundedIcon from '@mui/icons-material/CancelRounded'
-import { approveRequest, getPendingRequests, rejectRequest } from '../apis/requestService'
-import type { RequestItem } from '../types/request'
+import { SearchInput } from '../components/utils/SearchInput'
+import { approveRequest, getManagerRequests, rejectRequest } from '../apis/requestService'
+import type { RequestItem, RequestStatus } from '../types/request'
 import { getApiErrorMessage } from '../utils/getApiErrorMessage'
+
+const PAGE_SIZE_OPTIONS = [20, 50, 100] as const
 
 const TYPE_COLOR: Record<string, 'info' | 'secondary' | 'default'> = {
   OT: 'info',
   EXPLANATION: 'secondary',
 }
 
+const STATUS_LABEL: Record<RequestStatus, string> = {
+  PENDING: 'Pending',
+  APPROVED: 'Approved',
+  REJECTED: 'Rejected',
+}
+
+const STATUS_COLOR: Record<RequestStatus, 'warning' | 'success' | 'error'> = {
+  PENDING: 'warning',
+  APPROVED: 'success',
+  REJECTED: 'error',
+}
+
+type StatusFilter = RequestStatus | 'ALL'
+
 export function ApprovalsPage() {
   const [requests, setRequests] = useState<RequestItem[]>([])
+  const [total, setTotal] = useState(0)
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('PENDING')
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState<number>(20)
   const [loading, setLoading] = useState(true)
   const [snack, setSnack] = useState<{ message: string; severity: 'success' | 'error' } | null>(null)
 
-  // Confirmation dialog
   const [confirmAction, setConfirmAction] = useState<'approve' | 'reject' | null>(null)
   const [confirmTarget, setConfirmTarget] = useState<RequestItem | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
-  const fetchPending = useCallback(async () => {
+  const fetchRequests = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await getPendingRequests()
+      const data = await getManagerRequests({
+        status: statusFilter === 'ALL' ? undefined : statusFilter,
+        search: search || undefined,
+        page: page + 1,
+        pageSize,
+      })
       setRequests(data.items)
-    } catch {
-      setSnack({ message: 'Failed to load pending requests', severity: 'error' })
+      setTotal(data.total)
+    } catch (err: unknown) {
+      setSnack({
+        message: getApiErrorMessage(err, 'Failed to load requests'),
+        severity: 'error',
+      })
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [page, pageSize, search, statusFilter])
 
   useEffect(() => {
-    void fetchPending()
-  }, [fetchPending])
+    void fetchRequests()
+  }, [fetchRequests])
+
+  const handleSearch = useCallback((value: string) => {
+    setSearch(value)
+    setPage(0)
+  }, [])
+
+  const handleStatusChange = (event: SelectChangeEvent<StatusFilter>) => {
+    setStatusFilter(event.target.value as StatusFilter)
+    setPage(0)
+  }
+
+  const handleOpenConfirm = (action: 'approve' | 'reject', request: RequestItem) => {
+    if (request.status !== 'PENDING') return
+    setConfirmAction(action)
+    setConfirmTarget(request)
+  }
 
   const handleConfirm = async () => {
     if (!confirmTarget || !confirmAction) return
@@ -71,7 +123,7 @@ export function ApprovalsPage() {
       }
       setConfirmAction(null)
       setConfirmTarget(null)
-      void fetchPending()
+      void fetchRequests()
     } catch (err: unknown) {
       setSnack({
         message: getApiErrorMessage(err, 'Action failed'),
@@ -87,71 +139,133 @@ export function ApprovalsPage() {
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
         <Box>
           <Typography variant="h5" fontWeight={700}>Approvals</Typography>
-          <Typography variant="body2" color="text.secondary">Pending requests from employees</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Review pending, approved, and rejected employee requests
+          </Typography>
         </Box>
       </Stack>
 
-      <TableContainer component={Paper}>
-        <Table size="small">
-          <TableHead>
-            <TableRow sx={{ bgcolor: 'rgba(0, 160, 157, 0.08)' }}>
-              <TableCell>Employee</TableCell>
-              <TableCell>Type</TableCell>
-              <TableCell>Date</TableCell>
-              <TableCell>Reason</TableCell>
-              <TableCell>End Time</TableCell>
-              <TableCell align="center">Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 4 }}>Loading…</TableCell>
-              </TableRow>
-            ) : requests.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 4 }}>No pending requests.</TableCell>
-              </TableRow>
-            ) : (
-              requests.map((r) => (
-                <TableRow key={r.request_id} hover>
-                  <TableCell>{r.employee?.full_name ?? '—'}</TableCell>
-                  <TableCell>
-                    <Chip size="small" label={r.type} color={TYPE_COLOR[r.type] ?? 'default'} />
-                  </TableCell>
-                  <TableCell>{r.date}</TableCell>
-                  <TableCell sx={{ maxWidth: 250, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {r.reason ?? '—'}
-                  </TableCell>
-                  <TableCell>{r.end_time ?? '—'}</TableCell>
-                  <TableCell align="center">
-                    <Tooltip title="Approve">
-                      <IconButton
-                        size="small"
-                        color="success"
-                        onClick={() => { setConfirmAction('approve'); setConfirmTarget(r) }}
-                      >
-                        <CheckCircleRoundedIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Reject">
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={() => { setConfirmAction('reject'); setConfirmTarget(r) }}
-                      >
-                        <CancelRoundedIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+      <Paper>
+        <Stack
+          direction={{ xs: 'column', md: 'row' }}
+          spacing={2}
+          alignItems={{ xs: 'stretch', md: 'center' }}
+          sx={{ p: 2 }}
+        >
+          <SearchInput
+            placeholder="Search by name or email..."
+            onSearch={handleSearch}
+            sx={{ minWidth: { xs: '100%', md: 280 } }}
+          />
+          <FormControl size="small" sx={{ minWidth: 180 }}>
+            <InputLabel id="request-status-filter-label">Status</InputLabel>
+            <Select
+              labelId="request-status-filter-label"
+              label="Status"
+              value={statusFilter}
+              onChange={handleStatusChange}
+            >
+              <MenuItem value="ALL">All</MenuItem>
+              <MenuItem value="PENDING">Pending</MenuItem>
+              <MenuItem value="APPROVED">Approved</MenuItem>
+              <MenuItem value="REJECTED">Rejected</MenuItem>
+            </Select>
+          </FormControl>
+        </Stack>
 
-      {/* Confirmation Dialog */}
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow sx={{ bgcolor: 'rgba(0, 160, 157, 0.08)' }}>
+                <TableCell>Employee</TableCell>
+                <TableCell>Type</TableCell>
+                <TableCell>Date</TableCell>
+                <TableCell>Reason</TableCell>
+                <TableCell>End Time</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell align="center">Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={7} align="center" sx={{ py: 4 }}>Loading...</TableCell>
+                </TableRow>
+              ) : requests.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} align="center" sx={{ py: 4 }}>No requests found.</TableCell>
+                </TableRow>
+              ) : (
+                requests.map((r) => (
+                  <TableRow key={r.request_id} hover>
+                    <TableCell>
+                      <Typography variant="body2" fontWeight={600}>
+                        {r.employee?.full_name ?? '-'}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {r.employee?.email ?? '-'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Chip size="small" label={r.type} color={TYPE_COLOR[r.type] ?? 'default'} />
+                    </TableCell>
+                    <TableCell>{r.date}</TableCell>
+                    <TableCell sx={{ maxWidth: 250, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {r.reason ?? '-'}
+                    </TableCell>
+                    <TableCell>{r.end_time ?? '-'}</TableCell>
+                    <TableCell>
+                      <Chip size="small" label={STATUS_LABEL[r.status]} color={STATUS_COLOR[r.status]} />
+                    </TableCell>
+                    <TableCell align="center">
+                      {r.status === 'PENDING' ? (
+                        <>
+                          <Tooltip title="Approve">
+                            <IconButton
+                              size="small"
+                              color="success"
+                              onClick={() => handleOpenConfirm('approve', r)}
+                            >
+                              <CheckCircleRoundedIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Reject">
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => handleOpenConfirm('reject', r)}
+                            >
+                              <CancelRoundedIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </>
+                      ) : (
+                        <Typography variant="caption" color="text.secondary">
+                          Processed
+                        </Typography>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+
+        <TablePagination
+          component="div"
+          count={total}
+          page={page}
+          onPageChange={(_event, newPage) => setPage(newPage)}
+          rowsPerPage={pageSize}
+          onRowsPerPageChange={(event) => {
+            setPageSize(parseInt(event.target.value, 10))
+            setPage(0)
+          }}
+          rowsPerPageOptions={[...PAGE_SIZE_OPTIONS]}
+        />
+      </Paper>
+
       <Dialog open={confirmAction !== null} onClose={() => { setConfirmAction(null); setConfirmTarget(null) }}>
         <DialogTitle>
           {confirmAction === 'approve' ? 'Approve Request' : 'Reject Request'}
@@ -171,7 +285,7 @@ export function ApprovalsPage() {
             onClick={handleConfirm}
             disabled={submitting}
           >
-            {submitting ? 'Processing…' : confirmAction === 'approve' ? 'Approve' : 'Reject'}
+            {submitting ? 'Processing...' : confirmAction === 'approve' ? 'Approve' : 'Reject'}
           </Button>
         </DialogActions>
       </Dialog>

@@ -36,10 +36,10 @@ export class RequestsController {
     return this.requestsService.findByEmployee(req.user.employee_id, query);
   }
 
-  @Get('pending')
+  @Get('manager')
   @Roles('MANAGER')
-  findPending(@Req() req: JwtRequest, @Query() query: QueryRequestsDto) {
-    return this.requestsService.findPendingForManager(req.user.role, query);
+  findForManager(@Req() req: JwtRequest, @Query() query: QueryRequestsDto) {
+    return this.requestsService.findForManager(req.user.role, query);
   }
 
   @Patch(':id/approve')

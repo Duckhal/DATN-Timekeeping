@@ -1,6 +1,7 @@
 import apiClient from './axios'
 import type {
   RequestItem,
+  ManagerRequestsQuery,
   RequestsPage,
   RequestsQuery,
   CreateOtRequestPayload,
@@ -18,12 +19,14 @@ export async function getMyRequests(query: RequestsQuery = {}): Promise<Requests
   return response.data
 }
 
-export async function getPendingRequests(query: RequestsQuery = {}): Promise<RequestsPage> {
+export async function getManagerRequests(query: ManagerRequestsQuery = {}): Promise<RequestsPage> {
   const params: Record<string, string | number> = {}
   if (query.type) params.type = query.type
+  if (query.status) params.status = query.status
+  if (query.search?.trim()) params.search = query.search.trim()
   if (query.page) params.page = query.page
   if (query.pageSize) params.pageSize = query.pageSize
-  const response = await apiClient.get<RequestsPage>('/requests/pending', { params })
+  const response = await apiClient.get<RequestsPage>('/requests/manager', { params })
   return response.data
 }
 

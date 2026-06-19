@@ -1,4 +1,4 @@
-import { IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class QueryRequestsDto {
@@ -9,6 +9,10 @@ export class QueryRequestsDto {
   @IsOptional()
   @IsEnum(['PENDING', 'APPROVED', 'REJECTED'])
   status?: string;
+
+  @IsOptional()
+  @IsString()
+  search?: string;
 
   @IsOptional()
   @Type(() => Number)

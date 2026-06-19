@@ -30,7 +30,7 @@ const REQUEST_SELECT = {
   updated_at: true,
 };
 
-const PENDING_SELECT = {
+const MANAGER_REQUEST_SELECT = {
   ...REQUEST_SELECT,
   employee: { select: { full_name: true, email: true } },
 };
@@ -187,14 +187,26 @@ export class RequestsService {
     return { items: rows.map((r) => this.formatRequest(r)), page, pageSize, total };
   }
 
-  async findPendingForManager(actorRole: string, query: QueryRequestsDto) {
+  async findForManager(actorRole: string, query: QueryRequestsDto) {
     this.assertManager(actorRole);
 
     const page = query.page ?? 1;
     const pageSize = Math.min(query.pageSize ?? 20, 100);
+    const search = query.search?.trim();
 
-    const where: any = { status: 'PENDING' as RequestStatus };
+    const where: any = {};
+    if (query.status) where.status = query.status as RequestStatus;
     if (query.type) where.type = query.type;
+    if (search) {
+      where.employee = {
+        is: {
+          OR: [
+            { full_name: { contains: search, mode: 'insensitive' } },
+            { email: { contains: search, mode: 'insensitive' } },
+          ],
+        },
+      };
+    }
 
     const [total, rows] = await this.prisma.$transaction([
       this.prisma.request.count({ where }),
@@ -203,9 +215,13 @@ export class RequestsService {
         orderBy: { created_at: 'desc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
-        select: PENDING_SELECT,
+        select: MANAGER_REQUEST_SELECT,
       }),
     ]);
+
+    this.logger.log(
+      `[ManagerRequestList] status=${query.status ?? 'ALL'} type=${query.type ?? 'ALL'} search=${search ? 'yes' : 'no'} page=${page} pageSize=${pageSize} total=${total}`,
+    );
 
     return { items: rows.map((r) => this.formatRequest(r)), page, pageSize, total };
   }
