@@ -65,7 +65,6 @@ export function RequestsPage() {
   const [expReason, setExpReason] = useState('')
   const [expAttendanceId, setExpAttendanceId] = useState('')
   const [expEndTime, setExpEndTime] = useState('')
-  const [expNeedsEndTime, setExpNeedsEndTime] = useState(false)
   const [expSubmitting, setExpSubmitting] = useState(false)
   const [missingDays, setMissingDays] = useState<MissingCheckoutDay[]>([])
 
@@ -126,13 +125,12 @@ export function RequestsPage() {
       await createExplanationRequest({
         attendance_id: Number(expAttendanceId),
         reason: expReason.trim(),
-        end_time: expNeedsEndTime && expEndTime ? expEndTime : undefined,
+        end_time: expEndTime || undefined,
       })
       setExpOpen(false)
       setExpReason('')
       setExpAttendanceId('')
       setExpEndTime('')
-      setExpNeedsEndTime(false)
       setSnack({ message: 'Explanation request created', severity: 'success' })
       void fetchRequests()
     } catch (err: unknown) {
@@ -259,7 +257,6 @@ export function RequestsPage() {
                 label="Day (missing checkout)"
                 onChange={(e) => {
                   setExpAttendanceId(e.target.value)
-                  setExpNeedsEndTime(false)
                   setExpEndTime('')
                 }}
               >
@@ -279,17 +276,15 @@ export function RequestsPage() {
               required
               fullWidth
             />
-            {expNeedsEndTime && (
-              <TextField
-                label="Actual departure time (HH:mm)"
-                type="time"
-                value={expEndTime}
-                onChange={(e) => setExpEndTime(e.target.value)}
-                fullWidth
-                InputLabelProps={{ shrink: true }}
-                helperText="Required because this day has an approved OT request"
-              />
-            )}
+            <TextField
+              label="Actual departure time"
+              type="time"
+              value={expEndTime}
+              onChange={(e) => setExpEndTime(e.target.value)}
+              fullWidth
+              InputLabelProps={{ shrink: true }}
+              helperText="Leave blank to use 17:30 for non-OT days. Required if this day has approved OT."
+            />
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
