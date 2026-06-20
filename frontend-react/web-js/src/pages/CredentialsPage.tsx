@@ -413,7 +413,7 @@ export function CredentialsPage() {
   }, [employees, isLoading, isRemovingCredential])
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 } }}>
+    <Box sx={{ p: 3 }}>
       <Stack spacing={2}>
         <Box>
           <Typography variant="h5" fontWeight={700}>
@@ -424,19 +424,24 @@ export function CredentialsPage() {
           </Typography>
         </Box>
 
-        {/* 3. Rendered custom search bar container directly above the data layout container */}
-        <Box sx={{ mt: 1 }}>
-          <SearchInput 
-            placeholder="Search by name, email or RFID..." 
-            onSearch={handleSearchSubmit} 
-          />
-        </Box>
+        <Paper>
+          <Stack
+            direction={{ xs: 'column', md: 'row' }}
+            spacing={2}
+            alignItems={{ xs: 'stretch', md: 'center' }}
+            sx={{ p: 2 }}
+          >
+            <SearchInput
+              placeholder="Search by name, email or RFID..."
+              onSearch={handleSearchSubmit}
+              sx={{ minWidth: { xs: '100%', md: 280 } }}
+            />
+          </Stack>
 
-        <Paper sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, overflow: 'hidden' }}>
           <TableContainer>
-            <Table>
-              <TableHead sx={{ bgcolor: 'action.hover' }}>
-                <TableRow>
+            <Table size="small">
+              <TableHead>
+                <TableRow sx={{ bgcolor: 'rgba(0, 160, 157, 0.08)' }}>
                   <TableCell width="8%">ID</TableCell>
                   <TableCell width="22%">Full Name</TableCell>
                   <TableCell width="25%">Email</TableCell>
@@ -449,7 +454,6 @@ export function CredentialsPage() {
             </Table>
           </TableContainer>
 
-          {/* Pagination */}
           <TablePagination
             component="div"
             count={total}
@@ -464,8 +468,6 @@ export function CredentialsPage() {
           />
         </Paper>
       </Stack>
-
-      {/* 4. Custom Pagination Component integration mapped directly below the paper grid */}
 
       {/* Dialog Attach/Edit RFID */}
       <Dialog open={rfidDialogOpen} onClose={() => setRfidDialogOpen(false)} fullWidth maxWidth="sm">

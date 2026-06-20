@@ -269,7 +269,7 @@ export function EmployeesPage() {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
         <Box>
           <Typography variant="h5" fontWeight={700}>
             Employees
@@ -289,110 +289,117 @@ export function EmployeesPage() {
         </Stack>
       </Stack>
 
-      <Box sx={{ mb: 3, mt: 1 }}>
-        <SearchInput
-          placeholder="Search by name or email..."
-          onSearch={handleSearchSubmit}
-        />
-      </Box>
+      <Paper>
+        <Stack
+          direction={{ xs: 'column', md: 'row' }}
+          spacing={2}
+          alignItems={{ xs: 'stretch', md: 'center' }}
+          sx={{ p: 2 }}
+        >
+          <SearchInput
+            placeholder="Search by name or email..."
+            onSearch={handleSearchSubmit}
+            sx={{ minWidth: { xs: '100%', md: 280 } }}
+          />
+        </Stack>
 
-      <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
-        <Table size="small">
-          <TableHead>
-            <TableRow sx={{ bgcolor: 'rgba(0, 160, 157, 0.08)' }}>
-              <TableCell>ID</TableCell>
-              <TableCell>Email</TableCell>
-              <TableCell>Full Name</TableCell>
-              <TableCell>Role</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell align="center">Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 4, color: 'text.secondary' }}>
-                  Loading…
-                </TableCell>
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow sx={{ bgcolor: 'rgba(0, 160, 157, 0.08)' }}>
+                <TableCell>ID</TableCell>
+                <TableCell>Email</TableCell>
+                <TableCell>Full Name</TableCell>
+                <TableCell>Role</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell align="center">Actions</TableCell>
               </TableRow>
-            ) : (!employees || employees.length === 0) ? (
-              <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 4, color: 'text.secondary' }}>
-                  No employees found.
-                </TableCell>
-              </TableRow>
-            ) : (
-              employees.map((emp) => (
-                <TableRow key={emp.employee_id} hover>
-                  <TableCell>{emp.employee_id}</TableCell>
-                  <TableCell>{emp.email}</TableCell>
-                  <TableCell>{emp.full_name}</TableCell>
-                  <TableCell>
-                    <Chip
-                      size="small"
-                      label={formatRole(emp.role)}
-                      color={emp.role === 'MANAGER' ? 'primary' : 'default'}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    {emp.must_change_password ? (
-                      <Chip size="small" label="Pending Setup" color="warning" />
-                    ) : (
-                      <Chip size="small" label="Active" color="success" />
-                    )}
-                  </TableCell>
-                  <TableCell align="center">
-                    <Stack direction="row" spacing={0.5} justifyContent="center">
-                      <Tooltip title="Edit Employee">
-                        <IconButton
-                          size="small"
-                          color="primary"
-                          onClick={() => triggerEdit(emp)}
-                        >
-                          <EditRoundedIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Reset Password">
-                        <IconButton
-                          size="small"
-                          color="warning"
-                          onClick={() => triggerResetConfirm(emp)}
-                        >
-                          <LockResetRoundedIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title={emp.role === 'MANAGER' ? "Protected Manager Account" : "Deactivate Employee"}>
-                        <IconButton
-                          size="small"
-                          color="error"
-                          disabled={emp.employee_id === profile?.employee_id || emp.role === 'MANAGER'}
-                          onClick={() => triggerDeleteConfirm(emp)}
-                        >
-                          <DeleteRoundedIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </Stack>
+            </TableHead>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={6} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                    Loading…
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+              ) : (!employees || employees.length === 0) ? (
+                <TableRow>
+                  <TableCell colSpan={6} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                    No employees found.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                employees.map((emp) => (
+                  <TableRow key={emp.employee_id} hover>
+                    <TableCell>{emp.employee_id}</TableCell>
+                    <TableCell>{emp.email}</TableCell>
+                    <TableCell>{emp.full_name}</TableCell>
+                    <TableCell>
+                      <Chip
+                        size="small"
+                        label={formatRole(emp.role)}
+                        color={emp.role === 'MANAGER' ? 'primary' : 'default'}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      {emp.must_change_password ? (
+                        <Chip size="small" label="Pending Setup" color="warning" />
+                      ) : (
+                        <Chip size="small" label="Active" color="success" />
+                      )}
+                    </TableCell>
+                    <TableCell align="center">
+                      <Stack direction="row" spacing={0.5} justifyContent="center">
+                        <Tooltip title="Edit Employee">
+                          <IconButton
+                            size="small"
+                            color="primary"
+                            onClick={() => triggerEdit(emp)}
+                          >
+                            <EditRoundedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Reset Password">
+                          <IconButton
+                            size="small"
+                            color="warning"
+                            onClick={() => triggerResetConfirm(emp)}
+                          >
+                            <LockResetRoundedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title={emp.role === 'MANAGER' ? "Protected Manager Account" : "Deactivate Employee"}>
+                          <IconButton
+                            size="small"
+                            color="error"
+                            disabled={emp.employee_id === profile?.employee_id || emp.role === 'MANAGER'}
+                            onClick={() => triggerDeleteConfirm(emp)}
+                          >
+                            <DeleteRoundedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
 
-      {/* Pagination */}
-      <TablePagination
-        component="div"
-        count={total}
-        page={page}
-        onPageChange={(_e, newPage) => setPage(newPage)}
-        rowsPerPage={limit}
-        onRowsPerPageChange={(e) => {
-          setLimit(parseInt(e.target.value, 10))
-          setPage(0)
-        }}
-        rowsPerPageOptions={[...PAGE_SIZE_OPTIONS]}
-      />
+        <TablePagination
+          component="div"
+          count={total}
+          page={page}
+          onPageChange={(_e, newPage) => setPage(newPage)}
+          rowsPerPage={limit}
+          onRowsPerPageChange={(e) => {
+            setLimit(parseInt(e.target.value, 10))
+            setPage(0)
+          }}
+          rowsPerPageOptions={[...PAGE_SIZE_OPTIONS]}
+        />
+      </Paper>
 
       {/* Confirmation Dialog: Reset Password */}
       <Dialog

@@ -413,7 +413,7 @@ export function AttendanceLogPage() {
           <TableContainer>
             <Table size="small">
               <TableHead>
-                <TableRow sx={{ bgcolor: 'rgba(76, 77, 220, 0.06)' }}>
+                <TableRow sx={{ bgcolor: 'rgba(0, 160, 157, 0.08)' }}>
                   <TableCell sx={{ fontWeight: 600 }}>Employee</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Email</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Date</TableCell>

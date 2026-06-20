@@ -10,6 +10,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  IconButton,
   MenuItem,
   Paper,
   Snackbar,
@@ -21,8 +22,12 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material'
+import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
+import EditRoundedIcon from '@mui/icons-material/EditRounded'
+import SyncRoundedIcon from '@mui/icons-material/SyncRounded'
 import { getDevices, removeDevice, updateDevice, bulkSyncDevice } from '../apis/deviceService'
 import type { Device, DeviceStatus } from '../types/device'
 
@@ -48,6 +53,10 @@ function statusColor(status: DeviceStatus): 'success' | 'default' | 'warning' {
   }
 
   return 'warning'
+}
+
+function formatStatus(status: DeviceStatus): string {
+  return status.charAt(0) + status.slice(1).toLowerCase()
 }
 
 function getApiErrorMessage(error: unknown, fallback: string): string {
@@ -132,39 +141,46 @@ export function DevicesPage() {
         <TableCell>{device.name ?? '-'}</TableCell>
         <TableCell>{device.mac_addr}</TableCell>
         <TableCell>
-          <Chip size="small" label={device.status} color={statusColor(device.status)} />
+          <Chip size="small" label={formatStatus(device.status)} color={statusColor(device.status)} />
         </TableCell>
-        <TableCell>
-          <Stack direction="row" spacing={1}>
-            <Button
-              size="small"
-              variant="outlined"
-              onClick={() => {
-                setEditingDevice(device)
-                setNameDraft(device.name ?? '')
-                setStatusDraft(device.status)
-              }}
-            >
-              Edit
-            </Button>
-            {device.status === 'ACTIVE' && (
-              <Button
+        <TableCell align="center">
+          <Stack direction="row" spacing={0.5} justifyContent="center">
+            <Tooltip title="Edit Device">
+              <IconButton
                 size="small"
-                variant="outlined"
-                color="info"
-                onClick={() => handleBulkSync(device)}
+                color="primary"
+                onClick={() => {
+                  setEditingDevice(device)
+                  setNameDraft(device.name ?? '')
+                  setStatusDraft(device.status)
+                }}
               >
-                Sync
-              </Button>
-            )}
-            <Button
-              size="small"
-              color="error"
-              variant="outlined"
-              onClick={() => setDeleteTarget(device)}
+                <EditRoundedIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip
+              title={device.status === 'ACTIVE' ? 'Sync Device' : 'Only active devices can be synced'}
             >
-              Delete
-            </Button>
+              <span>
+                <IconButton
+                  size="small"
+                  color="info"
+                  disabled={device.status !== 'ACTIVE'}
+                  onClick={() => handleBulkSync(device)}
+                >
+                  <SyncRoundedIcon fontSize="small" />
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title="Delete Device">
+              <IconButton
+                size="small"
+                color="error"
+                onClick={() => setDeleteTarget(device)}
+              >
+                <DeleteRoundedIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
           </Stack>
         </TableCell>
       </TableRow>
@@ -264,7 +280,7 @@ export function DevicesPage() {
   }
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 } }}>
+    <Box sx={{ p: 3 }}>
       <Stack spacing={2}>
         <Box>
           <Typography variant="h5" fontWeight={700}>
@@ -275,22 +291,20 @@ export function DevicesPage() {
           </Typography>
         </Box>
 
-        <Paper sx={{ border: '1px solid', borderColor: 'divider' }}>
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>ID</TableCell>
-                  <TableCell>Name</TableCell>
-                  <TableCell>MAC Address</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>{tableContent}</TableBody>
-            </Table>
-          </TableContainer>
-        </Paper>
+        <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
+          <Table size="small">
+            <TableHead>
+              <TableRow sx={{ bgcolor: 'rgba(0, 160, 157, 0.08)' }}>
+                <TableCell>ID</TableCell>
+                <TableCell>Name</TableCell>
+                <TableCell>MAC Address</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell align="center">Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>{tableContent}</TableBody>
+          </Table>
+        </TableContainer>
       </Stack>
 
       <Dialog open={Boolean(editingDevice)} onClose={() => setEditingDevice(null)} fullWidth maxWidth="sm">
