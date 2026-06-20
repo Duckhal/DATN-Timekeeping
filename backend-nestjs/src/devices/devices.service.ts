@@ -4,9 +4,11 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { MqttService } from '../mqtt/mqtt.service';
 import { UpdateDeviceDto } from './dto/update-device.dto';
+import { QueryDevicesDto } from './dto/query-devices.dto';
 
 @Injectable()
 export class DevicesService {
@@ -79,6 +81,48 @@ export class DevicesService {
     return this.prisma.device.findMany({
       orderBy: { device_id: 'asc' },
     });
+  }
+
+  async findForManager(query: QueryDevicesDto) {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 20;
+    const search = query.search?.trim();
+    const where: Prisma.DeviceWhereInput = {};
+
+    if (query.status) {
+      where.status = query.status;
+    }
+
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { mac_addr: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    const [total, items] = await this.prisma.$transaction([
+      this.prisma.device.count({ where }),
+      this.prisma.device.findMany({
+        where,
+        orderBy: { device_id: 'asc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+    ]);
+
+    this.logger.log(
+      `[ManagerDeviceList] status=${query.status ?? 'ALL'} search=${search ? 'yes' : 'no'} page=${page} pageSize=${pageSize} total=${total}`,
+    );
+
+    return {
+      items: items.map((device) => ({
+        ...device,
+        status: device.status ?? 'ACTIVE',
+      })),
+      page,
+      pageSize,
+      total,
+    };
   }
 
   async findByMac(mac_addr: string) {

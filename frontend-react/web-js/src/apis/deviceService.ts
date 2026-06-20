@@ -1,8 +1,23 @@
 import apiClient from './axios'
-import type { Device, RemoveDeviceResponse, UpdateDevicePayload } from '../types/device'
+import type {
+  Device,
+  ManagerDevicesPage,
+  ManagerDevicesQuery,
+  RemoveDeviceResponse,
+  UpdateDevicePayload,
+} from '../types/device'
 
-export async function getDevices(): Promise<Device[]> {
-  const response = await apiClient.get<Device[]>('/devices')
+export async function getManagerDevices(
+  query: ManagerDevicesQuery = {},
+): Promise<ManagerDevicesPage> {
+  const response = await apiClient.get<ManagerDevicesPage>('/devices/manager', {
+    params: {
+      search: query.search?.trim() || undefined,
+      status: query.status,
+      page: query.page,
+      pageSize: query.pageSize,
+    },
+  })
   return response.data
 }
 

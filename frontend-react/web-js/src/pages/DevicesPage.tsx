@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { AxiosError } from 'axios'
 import {
   Alert,
@@ -10,9 +10,12 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControl,
   IconButton,
+  InputLabel,
   MenuItem,
   Paper,
+  Select,
   Snackbar,
   Stack,
   Table,
@@ -20,16 +23,23 @@ import {
   TableCell,
   TableContainer,
   TableHead,
+  TablePagination,
   TableRow,
   TextField,
   Tooltip,
   Typography,
 } from '@mui/material'
+import type { SelectChangeEvent } from '@mui/material'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import SyncRoundedIcon from '@mui/icons-material/SyncRounded'
-import { getDevices, removeDevice, updateDevice, bulkSyncDevice } from '../apis/deviceService'
+import { bulkSyncDevice, getManagerDevices, removeDevice, updateDevice } from '../apis/deviceService'
+import { SearchInput } from '../components/utils/SearchInput'
 import type { Device, DeviceStatus } from '../types/device'
+
+const PAGE_SIZE_OPTIONS = [1, 10, 20, 50, 100] as const
+
+type StatusFilter = DeviceStatus | 'ALL'
 
 type SnackbarState = {
   open: boolean
@@ -76,6 +86,11 @@ function getApiErrorMessage(error: unknown, fallback: string): string {
 
 export function DevicesPage() {
   const [devices, setDevices] = useState<Device[]>([])
+  const [total, setTotal] = useState(0)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL')
+  const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState<number>(20)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -88,31 +103,56 @@ export function DevicesPage() {
 
   const [snackbar, setSnackbar] = useState<SnackbarState>(DEFAULT_SNACKBAR)
 
-  const loadDevices = async () => {
+  const loadDevices = useCallback(async () => {
     try {
       setIsLoading(true)
-      const data = await getDevices()
-      setDevices(data)
+      const data = await getManagerDevices({
+        search: search || undefined,
+        status: statusFilter === 'ALL' ? undefined : statusFilter,
+        page: page + 1,
+        pageSize,
+      })
+      setDevices(data.items)
+      setTotal(data.total)
+      return data
     } catch (error) {
       setSnackbar({
         open: true,
         severity: 'error',
         message: getApiErrorMessage(error, 'Unable to load devices.'),
       })
+      return null
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [page, pageSize, search, statusFilter])
 
   useEffect(() => {
     void loadDevices()
+  }, [loadDevices])
+
+  const handleSearch = useCallback((value: string) => {
+    setSearch(value)
+    setPage(0)
   }, [])
+
+  const handleStatusChange = (event: SelectChangeEvent<StatusFilter>) => {
+    setStatusFilter(event.target.value as StatusFilter)
+    setPage(0)
+  }
+
+  const refreshAfterMutation = useCallback(async () => {
+    const data = await loadDevices()
+    if (data && data.items.length === 0 && page > 0) {
+      setPage(page - 1)
+    }
+  }, [loadDevices, page])
 
   const tableContent = useMemo(() => {
     if (isLoading) {
       return (
         <TableRow>
-          <TableCell colSpan={6}>
+          <TableCell colSpan={5}>
             <Box sx={{ py: 6, display: 'grid', placeItems: 'center' }}>
               <CircularProgress />
             </Box>
@@ -124,10 +164,10 @@ export function DevicesPage() {
     if (devices.length === 0) {
       return (
         <TableRow>
-          <TableCell colSpan={6}>
+          <TableCell colSpan={5}>
             <Box sx={{ py: 5, textAlign: 'center' }}>
               <Typography variant="body1" fontWeight={600}>
-                No active devices found.
+                No devices found.
               </Typography>
             </Box>
           </TableCell>
@@ -210,7 +250,7 @@ export function DevicesPage() {
         status: statusDraft,
       })
       setEditingDevice(null)
-      await loadDevices()
+      await refreshAfterMutation()
       setSnackbar({
         open: true,
         severity: 'success',
@@ -236,7 +276,7 @@ export function DevicesPage() {
       setIsDeleting(true)
       const result = await removeDevice(deleteTarget.device_id)
       setDeleteTarget(null)
-      await loadDevices()
+      await refreshAfterMutation()
 
       if (result.mode === 'SOFT_DELETE') {
         setSnackbar({
@@ -291,20 +331,62 @@ export function DevicesPage() {
           </Typography>
         </Box>
 
-        <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
-          <Table size="small">
-            <TableHead>
-              <TableRow sx={{ bgcolor: 'rgba(0, 160, 157, 0.08)' }}>
-                <TableCell>ID</TableCell>
-                <TableCell>Name</TableCell>
-                <TableCell>MAC Address</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell align="center">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>{tableContent}</TableBody>
-          </Table>
-        </TableContainer>
+        <Paper>
+          <Stack
+            direction={{ xs: 'column', md: 'row' }}
+            spacing={2}
+            alignItems={{ xs: 'stretch', md: 'center' }}
+            sx={{ p: 2 }}
+          >
+            <SearchInput
+              placeholder="Search by name or MAC address..."
+              onSearch={handleSearch}
+              sx={{ minWidth: { xs: '100%', md: 280 } }}
+            />
+            <FormControl size="small" sx={{ minWidth: 180 }}>
+              <InputLabel id="device-status-filter-label">Status</InputLabel>
+              <Select
+                labelId="device-status-filter-label"
+                label="Status"
+                value={statusFilter}
+                onChange={handleStatusChange}
+              >
+                <MenuItem value="ALL">All</MenuItem>
+                <MenuItem value="ACTIVE">Active</MenuItem>
+                <MenuItem value="INACTIVE">Inactive</MenuItem>
+                <MenuItem value="MAINTENANCE">Maintenance</MenuItem>
+              </Select>
+            </FormControl>
+          </Stack>
+
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow sx={{ bgcolor: 'rgba(0, 160, 157, 0.08)' }}>
+                  <TableCell>ID</TableCell>
+                  <TableCell>Name</TableCell>
+                  <TableCell>MAC Address</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell align="center">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>{tableContent}</TableBody>
+            </Table>
+          </TableContainer>
+
+          <TablePagination
+            component="div"
+            count={total}
+            page={page}
+            onPageChange={(_event, newPage) => setPage(newPage)}
+            rowsPerPage={pageSize}
+            onRowsPerPageChange={(event) => {
+              setPageSize(parseInt(event.target.value, 10))
+              setPage(0)
+            }}
+            rowsPerPageOptions={[...PAGE_SIZE_OPTIONS]}
+          />
+        </Paper>
       </Stack>
 
       <Dialog open={Boolean(editingDevice)} onClose={() => setEditingDevice(null)} fullWidth maxWidth="sm">

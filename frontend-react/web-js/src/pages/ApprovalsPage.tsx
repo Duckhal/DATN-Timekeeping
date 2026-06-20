@@ -34,7 +34,7 @@ import { approveRequest, getManagerRequests, rejectRequest } from '../apis/reque
 import type { RequestItem, RequestStatus } from '../types/request'
 import { getApiErrorMessage } from '../utils/getApiErrorMessage'
 
-const PAGE_SIZE_OPTIONS = [20, 50, 100] as const
+const PAGE_SIZE_OPTIONS = [1, 10, 20, 50, 100] as const
 
 const TYPE_COLOR: Record<string, 'info' | 'secondary' | 'default'> = {
   OT: 'info',

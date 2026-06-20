@@ -7,6 +7,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { Public } from '../auth/decorators/public.decorator';
@@ -15,6 +16,7 @@ import { ApiKeyGuard } from '../auth/guards/api-key.guard';
 import { DevicesService } from './devices.service';
 import { UpdateDeviceDto } from './dto/update-device.dto';
 import { FactoryResetDto } from './dto/factory-reset.dto';
+import { QueryDevicesDto } from './dto/query-devices.dto';
 
 @Controller('devices')
 export class DevicesController {
@@ -31,6 +33,12 @@ export class DevicesController {
   @Roles('MANAGER')
   findAll() {
     return this.devicesService.findAll();
+  }
+
+  @Get('manager')
+  @Roles('MANAGER')
+  findForManager(@Query() query: QueryDevicesDto) {
+    return this.devicesService.findForManager(query);
   }
 
   @Patch(':id')
