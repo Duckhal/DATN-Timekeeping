@@ -4,7 +4,7 @@
 
 namespace tk::config {
 namespace gpio {
-constexpr uint8_t kBootButtonPin = 32;
+constexpr uint8_t kBootButtonPin = 0;
 constexpr uint8_t kFingerprintRx = 16;
 constexpr uint8_t kFingerprintTx = 17;
 
