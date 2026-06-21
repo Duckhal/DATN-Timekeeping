@@ -140,24 +140,16 @@ export class RequestsService {
       endTime = this.parseTimeToDate('17:30');
     }
 
-    const request = await this.prisma.$transaction(async (tx) => {
-      await tx.monthlyLimit.upsert({
-        where: { employee_id_month_year: { employee_id: employeeId, month_year: monthYear } },
-        create: { employee_id: employeeId, month_year: monthYear, explanation_count: 1 },
-        update: { explanation_count: { increment: 1 } },
-      });
-
-      return tx.request.create({
-        data: {
-          employee_id: employeeId,
-          type: 'EXPLANATION',
-          date: attendanceDate,
-          attendance_id: BigInt(dto.attendance_id),
-          end_time: endTime,
-          reason: dto.reason,
-        },
-        select: REQUEST_SELECT,
-      });
+    const request = await this.prisma.request.create({
+      data: {
+        employee_id: employeeId,
+        type: 'EXPLANATION',
+        date: attendanceDate,
+        attendance_id: BigInt(dto.attendance_id),
+        end_time: endTime,
+        reason: dto.reason,
+      },
+      select: REQUEST_SELECT,
     });
 
     this.logger.log(`[CreateExplanation] employee=${employeeId} request_id=${request.request_id} attendance_id=${dto.attendance_id}`);
@@ -263,58 +255,84 @@ export class RequestsService {
     const STANDARD_WORK_SECONDS = 28800;
 
     const result = await this.prisma.$transaction(async (tx) => {
+      if (!request.attendance_id || !request.end_time) {
+        throw new BadRequestException('Explanation request is missing attendance or end time.');
+      }
+
       const updated = await tx.request.update({
         where: { request_id: request.request_id },
         data: { status: 'APPROVED' },
         select: REQUEST_SELECT,
       });
 
-      if (request.attendance_id) {
-        const attendance = await tx.dailyAttendance.findUnique({
-          where: { attendance_id: request.attendance_id },
-        });
+      const attendance = await tx.dailyAttendance.findUnique({
+        where: { attendance_id: request.attendance_id },
+      });
+      if (!attendance?.checkin_time) {
+        throw new BadRequestException('Attendance record is unavailable for recalculation.');
+      }
 
-        if (attendance && attendance.checkin_time) {
-          const dayOfWeek = attendance.date.getDay();
-          const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      const dayOfWeek = attendance.date.getDay();
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
-          // Re-check OT approval for this day so weekend-with-OT and weekday-with-OT
-          // both lift the 18:30 cap and deduct dinner overlap correctly.
-          const approvedOt = await tx.request.findFirst({
-            where: {
-              employee_id: request.employee_id,
-              type: 'OT',
-              status: 'APPROVED',
-              date: attendance.date,
-            },
-            select: { request_id: true },
-          });
-          const otApproved = approvedOt !== null;
+      // Re-check OT approval for this day so weekend-with-OT and weekday-with-OT
+      // both lift the 18:30 cap and deduct dinner overlap correctly.
+      const approvedOt = await tx.request.findFirst({
+        where: {
+          employee_id: request.employee_id,
+          type: 'OT',
+          status: 'APPROVED',
+          date: attendance.date,
+        },
+        select: { request_id: true },
+      });
+      const otApproved = approvedOt !== null;
 
-          const checkinSec = toSecondsOfDay(attendance.checkin_time)!;
-          const endTimeSec = toSecondsOfDay(request.end_time)!;
-          const credit = computeStandardCredit(checkinSec, endTimeSec, otApproved, isWeekend);
-          const workedSeconds = credit * STANDARD_WORK_SECONDS;
-          const missingMinutes = isWeekend && !otApproved
-            ? 0
-            : Math.max(0, Math.round((STANDARD_WORK_SECONDS - workedSeconds) / 60));
-          const status: 'COMPLETED' | 'SHORTHOURS' | 'WEEKEND' =
-            isWeekend && !otApproved
-              ? 'WEEKEND'
-              : credit >= 1
-                ? 'COMPLETED'
-                : 'SHORTHOURS';
+      const checkinSec = toSecondsOfDay(attendance.checkin_time)!;
+      const endTimeSec = toSecondsOfDay(request.end_time)!;
+      const credit = computeStandardCredit(checkinSec, endTimeSec, otApproved, isWeekend);
+      const workedSeconds = credit * STANDARD_WORK_SECONDS;
+      const missingMinutes = isWeekend && !otApproved
+        ? 0
+        : Math.max(0, Math.round((STANDARD_WORK_SECONDS - workedSeconds) / 60));
+      const status: 'COMPLETED' | 'SHORTHOURS' | 'WEEKEND' =
+        isWeekend && !otApproved
+          ? 'WEEKEND'
+          : credit >= 1
+            ? 'COMPLETED'
+            : 'SHORTHOURS';
 
-          await tx.dailyAttendance.update({
-            where: { attendance_id: request.attendance_id },
-            data: {
-              checkout_time: request.end_time,
-              total_workday: credit,
-              missing_minutes: missingMinutes,
-              status,
-            },
-          });
-        }
+      await tx.dailyAttendance.update({
+        where: { attendance_id: request.attendance_id },
+        data: {
+          checkout_time: request.end_time,
+          total_workday: credit,
+          missing_minutes: missingMinutes,
+          status,
+        },
+      });
+
+      const monthYear = this.toMonthYear(request.date);
+      await tx.monthlyLimit.upsert({
+        where: {
+          employee_id_month_year: {
+            employee_id: request.employee_id,
+            month_year: monthYear,
+          },
+        },
+        create: { employee_id: request.employee_id, month_year: monthYear, explanation_count: 0 },
+        update: {},
+      });
+      const consumed = await tx.monthlyLimit.updateMany({
+        where: {
+          employee_id: request.employee_id,
+          month_year: monthYear,
+          explanation_count: { lt: 2 },
+        },
+        data: { explanation_count: { increment: 1 } },
+      });
+      if (consumed.count !== 1) {
+        throw new BadRequestException('Monthly explanation limit reached (2/2).');
       }
 
       return updated;
@@ -341,22 +359,10 @@ export class RequestsService {
       throw new BadRequestException('Only PENDING requests can be rejected.');
     }
 
-    const updated = await this.prisma.$transaction(async (tx) => {
-      const result = await tx.request.update({
-        where: { request_id: requestId },
-        data: { status: 'REJECTED' },
-        select: REQUEST_SELECT,
-      });
-
-      if (request.type === 'EXPLANATION') {
-        const monthYear = this.toMonthYear(request.date);
-        await tx.monthlyLimit.updateMany({
-          where: { employee_id: request.employee_id, month_year: monthYear, explanation_count: { gt: 0 } },
-          data: { explanation_count: { decrement: 1 } },
-        });
-      }
-
-      return result;
+    const updated = await this.prisma.request.update({
+      where: { request_id: requestId },
+      data: { status: 'REJECTED' },
+      select: REQUEST_SELECT,
     });
 
     this.logger.log(`[Reject] request_id=${requestId} type=${request.type} by=${actorId}`);

@@ -125,3 +125,123 @@ describe('RequestsService manager listing', () => {
     expect(prisma.request.count).not.toHaveBeenCalled();
   });
 });
+
+describe('RequestsService explanation monthly limit', () => {
+  let prisma: any;
+  let notifications: { create: jest.Mock };
+  let service: RequestsService;
+
+  beforeEach(() => {
+    prisma = {
+      dailyAttendance: { findUnique: jest.fn() },
+      monthlyLimit: { findUnique: jest.fn() },
+      request: { findFirst: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
+      $transaction: jest.fn(),
+    };
+    notifications = { create: jest.fn() };
+    service = new RequestsService(
+      prisma as PrismaService,
+      notifications as unknown as NotificationsService,
+    );
+  });
+
+  it('does not consume a monthly explanation use when a request is created', async () => {
+    const attendanceDate = new Date(2026, 4, 10);
+    const created = requestRow({
+      type: 'EXPLANATION',
+      attendance_id: 10n,
+      date: attendanceDate,
+      end_time: new Date(1970, 0, 1, 17, 30),
+    });
+    prisma.dailyAttendance.findUnique.mockResolvedValue({
+      attendance_id: 10n,
+      employee_id: 7,
+      date: attendanceDate,
+      checkin_time: new Date(1970, 0, 1, 8, 0),
+      checkout_time: null,
+    });
+    prisma.monthlyLimit.findUnique.mockResolvedValue(null);
+    prisma.request.findFirst.mockResolvedValue(null);
+    prisma.request.create.mockResolvedValue(created);
+
+    await service.createExplanationRequest(7, {
+      attendance_id: 10,
+      reason: 'Forgot checkout',
+      end_time: '17:30',
+    });
+
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(prisma.request.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('consumes one monthly explanation use only after approval succeeds', async () => {
+    const attendanceDate = new Date(2026, 4, 10);
+    const endTime = new Date(1970, 0, 1, 17, 30);
+    const pending = requestRow({
+      type: 'EXPLANATION',
+      attendance_id: 10n,
+      date: attendanceDate,
+      end_time: endTime,
+    });
+    const approved = { ...pending, status: 'APPROVED' };
+    const tx = {
+      request: {
+        update: jest.fn().mockResolvedValue(approved),
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      dailyAttendance: {
+        findUnique: jest.fn().mockResolvedValue({
+          attendance_id: 10n,
+          date: attendanceDate,
+          checkin_time: new Date(1970, 0, 1, 8, 0),
+        }),
+        update: jest.fn().mockResolvedValue({}),
+      },
+      monthlyLimit: {
+        upsert: jest.fn().mockResolvedValue({}),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+    };
+    prisma.request.findUnique.mockResolvedValue(pending);
+    prisma.$transaction.mockImplementation((callback: (client: any) => unknown) => callback(tx));
+
+    await service.approveRequest(1, 99, 'MANAGER');
+
+    expect(tx.dailyAttendance.update).toHaveBeenCalledTimes(1);
+    expect(tx.monthlyLimit.upsert).toHaveBeenCalledWith({
+      where: {
+        employee_id_month_year: {
+          employee_id: 7,
+          month_year: '2026-05',
+        },
+      },
+      create: { employee_id: 7, month_year: '2026-05', explanation_count: 0 },
+      update: {},
+    });
+    expect(tx.monthlyLimit.updateMany).toHaveBeenCalledWith({
+      where: {
+        employee_id: 7,
+        month_year: '2026-05',
+        explanation_count: { lt: 2 },
+      },
+      data: { explanation_count: { increment: 1 } },
+    });
+  });
+
+  it('does not change the monthly explanation count when a request is rejected', async () => {
+    const pending = requestRow({
+      type: 'EXPLANATION',
+      attendance_id: 10n,
+      date: new Date(2026, 4, 10),
+    });
+    prisma.request.findUnique.mockResolvedValue(pending);
+    prisma.request.update.mockResolvedValue({ ...pending, status: 'REJECTED' });
+
+    await service.rejectRequest(1, 99, 'MANAGER');
+
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(prisma.request.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { status: 'REJECTED' } }),
+    );
+  });
+});
