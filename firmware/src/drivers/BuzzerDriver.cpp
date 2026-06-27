@@ -4,10 +4,6 @@
 
 namespace tk::drivers {
 
-static constexpr BuzzerDriver::Step kAckPattern[] = {
-    {config::buzzer::kAckDurationMs, true},
-};
-
 static constexpr BuzzerDriver::Step kSuccessPattern[] = {
     {config::buzzer::kSuccessBeepMs, true},
     {config::buzzer::kSuccessPauseMs, false},
@@ -58,7 +54,13 @@ void BuzzerDriver::update() {
 }
 
 void BuzzerDriver::playAck() {
-  startPattern(kAckPattern, sizeof(kAckPattern) / sizeof(kAckPattern[0]));
+  state_ = State::IDLE;
+  pattern_ = nullptr;
+  patternLen_ = 0;
+  stepIndex_ = 0;
+  digitalWrite(pin_, LOW);
+  delay(config::buzzer::kAckDurationMs);
+  digitalWrite(pin_, HIGH);
 }
 
 void BuzzerDriver::playSuccess() {
