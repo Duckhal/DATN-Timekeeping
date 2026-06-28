@@ -172,33 +172,18 @@ export class DevicesService {
   async remove(deviceId: number) {
     const device = await this.findById(deviceId);
 
-    const checkInLogCount = await this.prisma.checkInLog.count({
+    const inactiveDevice = await this.prisma.device.update({
       where: { device_id: deviceId },
+      data: { status: 'INACTIVE' },
     });
 
-    if (checkInLogCount > 0) {
-      const softDeleted = await this.prisma.device.update({
-        where: { device_id: deviceId },
-        data: { status: 'INACTIVE' },
-      });
-
-      this.publishStatusUpdate(device.mac_addr, 'INACTIVE');
-
-      return {
-        mode: 'SOFT_DELETE',
-        message: 'Device has historical check-ins. Status changed to INACTIVE.',
-        device: softDeleted,
-      };
-    }
-
-    const hardDeleted = await this.prisma.device.delete({
-      where: { device_id: deviceId },
-    });
+    this.publishStatusUpdate(device.mac_addr, 'INACTIVE');
+    this.logger.log(`[DeviceRemove] deviceId=${deviceId} status=INACTIVE`);
 
     return {
-      mode: 'HARD_DELETE',
-      message: 'Device deleted permanently.',
-      device: hardDeleted,
+      mode: 'SOFT_DELETE',
+      message: 'Device status changed to INACTIVE.',
+      device: inactiveDevice,
     };
   }
 
