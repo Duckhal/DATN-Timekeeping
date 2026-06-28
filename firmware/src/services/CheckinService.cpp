@@ -122,13 +122,6 @@ void CheckinService::parseAndApply(uint16_t matchedId, const String& body) {
     return;
   }
 
-  if (status == "duplicate") {
-    const String name = doc["employee_name"] | "";
-    display_.showAlreadyCheckedIn(name);
-    buzzer_.playSuccess();
-    return;
-  }
-
   Serial.printf("[Checkin] Unknown response status=%s\n", status.c_str());
   display_.showCheckinDenied();
   buzzer_.playError();

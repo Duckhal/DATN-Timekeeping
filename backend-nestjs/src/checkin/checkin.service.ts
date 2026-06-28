@@ -27,12 +27,6 @@ export type CheckinResponse =
       status: 'invalid_credential';
       action?: 'FORCE_DELETE_LOCAL';
       local_id?: number;
-    }
-  | {
-      status: 'duplicate';
-      employee_id: number;
-      employee_name: string;
-      last_at: string;
     };
 
 @Injectable()
@@ -44,16 +38,18 @@ export class CheckinService {
    * Timekeeping.md §2.2 "Midnight crossing".
    */
   private static readonly MIDNIGHT_GRACE_HOUR = 4;
-  private static readonly DUPLICATE_WINDOW_MS = 10_000;
 
   constructor(private readonly prisma: PrismaService) {}
 
   async handle(dto: CheckinDto): Promise<CheckinResponse> {
     const now = new Date();
-    const { mac_addr, auth_method, fingerprint_id, rfid_tag, client_tx_id } = dto;
+    const { mac_addr, auth_method, fingerprint_id, rfid_tag, client_tx_id } =
+      dto;
 
     if (auth_method === 'FINGERPRINT' && !fingerprint_id) {
-      throw new BadRequestException('fingerprint_id is required for FINGERPRINT checkin.');
+      throw new BadRequestException(
+        'fingerprint_id is required for FINGERPRINT checkin.',
+      );
     }
 
     if (auth_method === 'RFID' && !rfid_tag) {
@@ -116,36 +112,6 @@ export class CheckinService {
       employeeName = employee.full_name ?? '';
     }
 
-    const tenSecondsAgo = new Date(now.getTime() - CheckinService.DUPLICATE_WINDOW_MS);
-    const recent = await this.prisma.checkInLog.findFirst({
-      where: {
-        employee_id: employeeId,
-        timestamp: { gte: tenSecondsAgo },
-      },
-      orderBy: { timestamp: 'desc' },
-      select: { timestamp: true },
-    });
-
-    if (recent) {
-      if (!employeeName) {
-        const employee = await this.prisma.employee.findUnique({
-          where: { employee_id: employeeId },
-          select: { full_name: true },
-        });
-        employeeName = employee?.full_name ?? '';
-      }
-
-      this.logger.log(
-        `[Checkin] Duplicate scan employee=${employeeId} within debounce window`,
-      );
-
-      return {
-        status: 'duplicate',
-        employee_id: employeeId,
-        employee_name: employeeName,
-        last_at: recent.timestamp.toISOString(),
-      };
-    }
     const targetDate = this.resolveAttendanceDate(now);
 
     return this.prisma.$transaction(async (tx) => {
@@ -162,7 +128,10 @@ export class CheckinService {
           },
         });
       } catch (err) {
-        if (err instanceof PrismaClientKnownRequestError && err.code === 'P2002') {
+        if (
+          err instanceof PrismaClientKnownRequestError &&
+          err.code === 'P2002'
+        ) {
           this.logger.log(
             `[Checkin] Idempotent retry employee=${employeeId} tx=${client_tx_id}`,
           );
@@ -186,7 +155,9 @@ export class CheckinService {
             });
             return {
               status: 'ok' as const,
-              kind: attendance?.checkout_time ? ('CHECKOUT' as const) : ('CHECKIN' as const),
+              kind: attendance?.checkout_time
+                ? ('CHECKOUT' as const)
+                : ('CHECKIN' as const),
               employee_id: existing.employee_id,
               employee_name: employee?.full_name ?? '',
               timestamp: existing.timestamp.toISOString(),

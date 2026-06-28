@@ -95,14 +95,6 @@ void RfidService::parseAndApply(const String& body) {
     return;
   }
 
-  if (status == "duplicate") {
-    const String name = doc["employee_name"] | "";
-    Serial.printf("[RFID] Duplicate scan employee=%s\n", name.c_str());
-    display_.showAlreadyCheckedIn(name);
-    buzzer_.playSuccess();
-    return;
-  }
-
   if (status == "invalid_credential") {
     Serial.println("[RFID] Card not recognized.");
     display_.showCardNotRecognized();

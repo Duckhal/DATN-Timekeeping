@@ -30,7 +30,6 @@ class DisplayService {
   void showSettingsCleared();
   void showCheckinSuccess(const String& employeeName);
   void showCheckinDenied();
-  void showAlreadyCheckedIn(const String& employeeName);
   void showCardNotRecognized();
   void showBulkSyncProgress(uint16_t count);
   void showBulkSyncComplete(uint16_t count);
