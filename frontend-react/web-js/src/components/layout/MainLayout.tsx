@@ -27,7 +27,6 @@ import VpnKeyRoundedIcon from '@mui/icons-material/VpnKeyRounded'
 import AssessmentRoundedIcon from '@mui/icons-material/AssessmentRounded'
 import FactCheckRoundedIcon from '@mui/icons-material/FactCheckRounded'
 import NotificationsRoundedIcon from '@mui/icons-material/NotificationsRounded'
-import HelpOutlineRoundedIcon from '@mui/icons-material/HelpOutlineRounded'
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded'
 import EventNoteRoundedIcon from '@mui/icons-material/EventNoteRounded'
 
@@ -170,23 +169,6 @@ export function MainLayout() {
             )
           })}
         </List>
-      </Box>
-
-      {/* Box trợ giúp chân trang Sidebar */}
-      <Box sx={{ p: 2 }}>
-        <Box sx={{ p: 2, bgcolor: '#F8F9FA', borderRadius: '12px', display: 'flex', gap: 1.5, alignItems: 'center' }}>
-          <Box sx={{ color: 'primary.main' }}>
-            <HelpOutlineRoundedIcon />
-          </Box>
-          <Box>
-            <Typography variant="subtitle2" fontWeight={600} fontSize="0.85rem">
-              Need help?
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Check our docs
-            </Typography>
-          </Box>
-        </Box>
       </Box>
     </Box>
   )

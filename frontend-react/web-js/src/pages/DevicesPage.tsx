@@ -277,20 +277,11 @@ export function DevicesPage() {
       const result = await removeDevice(deleteTarget.device_id)
       setDeleteTarget(null)
       await refreshAfterMutation()
-
-      if (result.mode === 'SOFT_DELETE') {
-        setSnackbar({
-          open: true,
-          severity: 'warning',
-          message: 'Device was disabled because historical records exist.',
-        })
-      } else {
-        setSnackbar({
-          open: true,
-          severity: 'success',
-          message: 'Device deleted successfully.',
-        })
-      }
+      setSnackbar({
+        open: true,
+        severity: 'warning',
+        message: result.message,
+      })
     } catch (error) {
       setSnackbar({
         open: true,

@@ -28,7 +28,7 @@ export type UpdateDevicePayload = {
 }
 
 export type RemoveDeviceResponse = {
-  mode: 'SOFT_DELETE' | 'HARD_DELETE'
+  mode: 'SOFT_DELETE'
   message: string
   device: Device
 }

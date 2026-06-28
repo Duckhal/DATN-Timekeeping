@@ -5,10 +5,6 @@ import {
   CircularProgress,
   Divider,
   IconButton,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
   Paper,
   Stack,
   Table,
@@ -19,8 +15,6 @@ import {
   TableRow,
   Typography,
 } from '@mui/material'
-import ScheduleRoundedIcon from '@mui/icons-material/ScheduleRounded'
-import WorkHistoryRoundedIcon from '@mui/icons-material/WorkHistoryRounded'
 import ChevronLeftRoundedIcon from '@mui/icons-material/ChevronLeftRounded'
 import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded'
 import { useEffect, useMemo, useState } from 'react'
@@ -295,26 +289,6 @@ export function PortalDashboard({ welcomeName }: PortalDashboardProps) {
               </TableBody>
             </Table>
           </TableContainer>
-        </Paper>
-
-        <Paper sx={{ p: 2 }}>
-          <Typography variant="subtitle1" fontWeight={700}>
-            Quick Actions
-          </Typography>
-          <List dense>
-            <ListItem>
-              <ListItemIcon>
-                <ScheduleRoundedIcon color="primary" />
-              </ListItemIcon>
-              <ListItemText primary="View detailed attendance by date" />
-            </ListItem>
-            <ListItem>
-              <ListItemIcon>
-                <WorkHistoryRoundedIcon color="primary" />
-              </ListItemIcon>
-              <ListItemText primary="Submit a personal profile update request" />
-            </ListItem>
-          </List>
         </Paper>
       </Stack>
     </Box>
