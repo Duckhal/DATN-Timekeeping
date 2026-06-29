@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
+import { businessDateFromInstant } from '../common/vietnam-time';
 
 @Injectable()
 export class RequestsCronService {
@@ -10,8 +11,7 @@ export class RequestsCronService {
 
   @Cron('0 4 * * *')
   async autoRejectExpiredOtRequests() {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = businessDateFromInstant(new Date());
 
     const result = await this.prisma.request.updateMany({
       where: {
@@ -23,7 +23,9 @@ export class RequestsCronService {
     });
 
     if (result.count > 0) {
-      this.logger.log(`[AutoReject] Rejected ${result.count} expired OT request(s).`);
+      this.logger.log(
+        `[AutoReject] Rejected ${result.count} expired OT request(s).`,
+      );
     }
   }
 }

@@ -15,6 +15,15 @@ import {
   toSecondsOfDay,
 } from '../attendance/attendance.compute';
 import type { RequestStatus } from '../types/enums';
+import {
+  addDateOnlyDays,
+  businessDateFromInstant,
+  dateOnlyDayOfWeek,
+  dateOnlyFromIso,
+  formatDateOnly,
+  formatTimeOnly,
+  timeOnlyFromString,
+} from '../common/vietnam-time';
 
 const REQUEST_SELECT = {
   request_id: true,
@@ -65,7 +74,9 @@ export class RequestsService {
       },
     });
     if (existing) {
-      throw new BadRequestException('You already have a pending OT request for that date.');
+      throw new BadRequestException(
+        'You already have a pending OT request for that date.',
+      );
     }
 
     const request = await this.prisma.request.create({
@@ -78,11 +89,16 @@ export class RequestsService {
       select: REQUEST_SELECT,
     });
 
-    this.logger.log(`[CreateOT] employee=${employeeId} request_id=${request.request_id} date=${this.formatDate(targetDate)}`);
+    this.logger.log(
+      `[CreateOT] employee=${employeeId} request_id=${request.request_id} date=${this.formatDate(targetDate)}`,
+    );
     return this.formatRequest(request);
   }
 
-  async createExplanationRequest(employeeId: number, dto: CreateExplanationRequestDto) {
+  async createExplanationRequest(
+    employeeId: number,
+    dto: CreateExplanationRequestDto,
+  ) {
     const attendance = await this.prisma.dailyAttendance.findUnique({
       where: { attendance_id: BigInt(dto.attendance_id) },
     });
@@ -90,7 +106,9 @@ export class RequestsService {
       throw new NotFoundException('Attendance record not found.');
     }
     if (attendance.employee_id !== employeeId) {
-      throw new ForbiddenException('This attendance record does not belong to you.');
+      throw new ForbiddenException(
+        'This attendance record does not belong to you.',
+      );
     }
     if (attendance.checkout_time !== null) {
       throw new BadRequestException('This day already has a checkout time.');
@@ -104,7 +122,12 @@ export class RequestsService {
 
     const monthYear = this.toMonthYear(attendanceDate);
     const limit = await this.prisma.monthlyLimit.findUnique({
-      where: { employee_id_month_year: { employee_id: employeeId, month_year: monthYear } },
+      where: {
+        employee_id_month_year: {
+          employee_id: employeeId,
+          month_year: monthYear,
+        },
+      },
     });
     if (limit && limit.explanation_count >= 2) {
       throw new BadRequestException('Monthly explanation limit reached (2/2).');
@@ -119,7 +142,9 @@ export class RequestsService {
       },
     });
     if (duplicate) {
-      throw new BadRequestException('An explanation request already exists for this day.');
+      throw new BadRequestException(
+        'An explanation request already exists for this day.',
+      );
     }
 
     let endTime: Date | null = null;
@@ -135,7 +160,9 @@ export class RequestsService {
         },
       });
       if (hasApprovedOt) {
-        throw new BadRequestException('This day has an approved OT request. Please provide end_time.');
+        throw new BadRequestException(
+          'This day has an approved OT request. Please provide end_time.',
+        );
       }
       endTime = this.parseTimeToDate('17:30');
     }
@@ -152,7 +179,9 @@ export class RequestsService {
       select: REQUEST_SELECT,
     });
 
-    this.logger.log(`[CreateExplanation] employee=${employeeId} request_id=${request.request_id} attendance_id=${dto.attendance_id}`);
+    this.logger.log(
+      `[CreateExplanation] employee=${employeeId} request_id=${request.request_id} attendance_id=${dto.attendance_id}`,
+    );
     return this.formatRequest(request);
   }
 
@@ -176,7 +205,12 @@ export class RequestsService {
       }),
     ]);
 
-    return { items: rows.map((r) => this.formatRequest(r)), page, pageSize, total };
+    return {
+      items: rows.map((r) => this.formatRequest(r)),
+      page,
+      pageSize,
+      total,
+    };
   }
 
   async findForManager(actorRole: string, query: QueryRequestsDto) {
@@ -215,7 +249,12 @@ export class RequestsService {
       `[ManagerRequestList] status=${query.status ?? 'ALL'} type=${query.type ?? 'ALL'} search=${search ? 'yes' : 'no'} page=${page} pageSize=${pageSize} total=${total}`,
     );
 
-    return { items: rows.map((r) => this.formatRequest(r)), page, pageSize, total };
+    return {
+      items: rows.map((r) => this.formatRequest(r)),
+      page,
+      pageSize,
+      total,
+    };
   }
 
   async approveRequest(requestId: number, actorId: number, actorRole: string) {
@@ -239,7 +278,9 @@ export class RequestsService {
       select: REQUEST_SELECT,
     });
 
-    this.logger.log(`[Approve] request_id=${requestId} type=${request.type} by=${actorId}`);
+    this.logger.log(
+      `[Approve] request_id=${requestId} type=${request.type} by=${actorId}`,
+    );
     this.notificationsService.create(request.employee_id, {
       title: `${request.type} Request Approved`,
       content: `Your ${request.type.toLowerCase()} request for ${this.formatDate(request.date)} has been approved.`,
@@ -256,7 +297,9 @@ export class RequestsService {
 
     const result = await this.prisma.$transaction(async (tx) => {
       if (!request.attendance_id || !request.end_time) {
-        throw new BadRequestException('Explanation request is missing attendance or end time.');
+        throw new BadRequestException(
+          'Explanation request is missing attendance or end time.',
+        );
       }
 
       const updated = await tx.request.update({
@@ -269,10 +312,12 @@ export class RequestsService {
         where: { attendance_id: request.attendance_id },
       });
       if (!attendance?.checkin_time) {
-        throw new BadRequestException('Attendance record is unavailable for recalculation.');
+        throw new BadRequestException(
+          'Attendance record is unavailable for recalculation.',
+        );
       }
 
-      const dayOfWeek = attendance.date.getDay();
+      const dayOfWeek = dateOnlyDayOfWeek(attendance.date);
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
       // Re-check OT approval for this day so weekend-with-OT and weekday-with-OT
@@ -290,11 +335,20 @@ export class RequestsService {
 
       const checkinSec = toSecondsOfDay(attendance.checkin_time)!;
       const endTimeSec = toSecondsOfDay(request.end_time)!;
-      const credit = computeStandardCredit(checkinSec, endTimeSec, otApproved, isWeekend);
+      const credit = computeStandardCredit(
+        checkinSec,
+        endTimeSec,
+        otApproved,
+        isWeekend,
+      );
       const workedSeconds = credit * STANDARD_WORK_SECONDS;
-      const missingMinutes = isWeekend && !otApproved
-        ? 0
-        : Math.max(0, Math.round((STANDARD_WORK_SECONDS - workedSeconds) / 60));
+      const missingMinutes =
+        isWeekend && !otApproved
+          ? 0
+          : Math.max(
+              0,
+              Math.round((STANDARD_WORK_SECONDS - workedSeconds) / 60),
+            );
       const status: 'COMPLETED' | 'SHORTHOURS' | 'WEEKEND' =
         isWeekend && !otApproved
           ? 'WEEKEND'
@@ -320,7 +374,11 @@ export class RequestsService {
             month_year: monthYear,
           },
         },
-        create: { employee_id: request.employee_id, month_year: monthYear, explanation_count: 0 },
+        create: {
+          employee_id: request.employee_id,
+          month_year: monthYear,
+          explanation_count: 0,
+        },
         update: {},
       });
       const consumed = await tx.monthlyLimit.updateMany({
@@ -332,13 +390,17 @@ export class RequestsService {
         data: { explanation_count: { increment: 1 } },
       });
       if (consumed.count !== 1) {
-        throw new BadRequestException('Monthly explanation limit reached (2/2).');
+        throw new BadRequestException(
+          'Monthly explanation limit reached (2/2).',
+        );
       }
 
       return updated;
     });
 
-    this.logger.log(`[ApproveExplanation] request_id=${request.request_id} attendance recalculated`);
+    this.logger.log(
+      `[ApproveExplanation] request_id=${request.request_id} attendance recalculated`,
+    );
     this.notificationsService.create(request.employee_id, {
       title: 'Explanation Request Approved',
       content: `Your explanation request for ${this.formatDate(request.date)} has been approved. Attendance recalculated.`,
@@ -365,7 +427,9 @@ export class RequestsService {
       select: REQUEST_SELECT,
     });
 
-    this.logger.log(`[Reject] request_id=${requestId} type=${request.type} by=${actorId}`);
+    this.logger.log(
+      `[Reject] request_id=${requestId} type=${request.type} by=${actorId}`,
+    );
     this.notificationsService.create(request.employee_id, {
       title: `${request.type} Request Rejected`,
       content: `Your ${request.type.toLowerCase()} request for ${this.formatDate(request.date)} has been rejected.`,
@@ -377,34 +441,30 @@ export class RequestsService {
 
   private assertManager(actorRole: string) {
     if (actorRole !== 'MANAGER') {
-      throw new ForbiddenException('Only Manager users can perform this action.');
+      throw new ForbiddenException(
+        'Only Manager users can perform this action.',
+      );
     }
   }
 
   private todayDate(): Date {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return businessDateFromInstant(new Date());
   }
 
   private parseDateString(iso: string): Date {
-    const [y, m, d] = iso.split('-').map(Number);
-    return new Date(y, m - 1, d);
+    return dateOnlyFromIso(iso);
   }
 
   private addDays(base: Date, days: number): Date {
-    const next = new Date(base);
-    next.setDate(next.getDate() + days);
-    return next;
+    return addDateOnlyDays(base, days);
   }
 
   private toMonthYear(date: Date): string {
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    return formatDateOnly(date).slice(0, 7);
   }
 
   private parseTimeToDate(time: string): Date {
-    const [h, m] = time.split(':').map(Number);
-    const d = new Date(1970, 0, 1, h, m, 0, 0);
-    return d;
+    return timeOnlyFromString(time);
   }
 
   private formatRequest(row: any) {
@@ -420,10 +480,10 @@ export class RequestsService {
   }
 
   private formatDate(d: Date): string {
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return formatDateOnly(d);
   }
 
   private formatTime(d: Date): string {
-    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    return formatTimeOnly(d);
   }
 }

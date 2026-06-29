@@ -19,6 +19,11 @@ import type {
   PayrollEmployee,
   PayrollRecordWithEmployee,
 } from '../types';
+import {
+  dateOnlyDayOfWeek,
+  formatDateOnly,
+  monthDateRange,
+} from '../common/vietnam-time';
 
 const PDF_FONT_ROOT = path.resolve(
   process.cwd(),
@@ -47,9 +52,9 @@ export function countWeekdaysInMonth(month: string): number {
   for (
     const date = new Date(from);
     date <= to;
-    date.setDate(date.getDate() + 1)
+    date.setUTCDate(date.getUTCDate() + 1)
   ) {
-    const day = date.getDay();
+    const day = dateOnlyDayOfWeek(date);
     if (day !== 0 && day !== 6) count += 1;
   }
   return count;
@@ -71,12 +76,7 @@ export function calculatePayrollAmounts(input: {
 }
 
 function resolveMonthRange(month: string): { from: Date; to: Date } {
-  const [year, monthNumber] = month.split('-').map(Number);
-  const from = new Date(year, monthNumber - 1, 1);
-  const to = new Date(year, monthNumber, 0);
-  from.setHours(0, 0, 0, 0);
-  to.setHours(0, 0, 0, 0);
-  return { from, to };
+  return monthDateRange(month);
 }
 
 function roundMoney(value: number): number {
@@ -84,10 +84,7 @@ function roundMoney(value: number): number {
 }
 
 function formatDate(value: Date): string {
-  const year = value.getFullYear();
-  const month = String(value.getMonth() + 1).padStart(2, '0');
-  const day = String(value.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return formatDateOnly(value);
 }
 
 function formatVnd(value: number): string {
@@ -290,7 +287,7 @@ export class PayrollService {
   ): number {
     return rows.reduce((sum, row) => {
       const dateKey = row.date.toISOString().slice(0, 10);
-      const dayOfWeek = row.date.getDay();
+      const dayOfWeek = dateOnlyDayOfWeek(row.date);
       const computed = computeAttendance({
         checkin: row.checkin_time,
         checkout: row.checkout_time,
@@ -328,14 +325,21 @@ export class PayrollService {
       },
       content: [
         { text: 'PHIẾU LƯƠNG THÁNG', style: 'title' },
-        { text: `Tháng ${input.month}`, style: 'subtitle', margin: [0, 4, 0, 24] },
+        {
+          text: `Tháng ${input.month}`,
+          style: 'subtitle',
+          margin: [0, 4, 0, 24],
+        },
         {
           table: {
             widths: ['35%', '*'],
             body: [
               [{ text: 'Nhân viên', style: 'label' }, input.employee.full_name],
               [{ text: 'Email', style: 'label' }, input.employee.email],
-              [{ text: 'Kỳ lương', style: 'label' }, `${input.from} đến ${input.to}`],
+              [
+                { text: 'Kỳ lương', style: 'label' },
+                `${input.from} đến ${input.to}`,
+              ],
             ],
           },
           layout: 'lightHorizontalLines',
@@ -347,14 +351,32 @@ export class PayrollService {
             body: [
               [
                 { text: 'Chỉ tiêu', bold: true, fillColor: '#E2E8F0' },
-                { text: 'Giá trị', bold: true, fillColor: '#E2E8F0', alignment: 'right' },
+                {
+                  text: 'Giá trị',
+                  bold: true,
+                  fillColor: '#E2E8F0',
+                  alignment: 'right',
+                },
               ],
-              ['Tổng số giờ tiêu chuẩn', { text: input.standardHours.toFixed(2), alignment: 'right' }],
-              ['Tổng số giờ thực tế', { text: input.actualHours.toFixed(2), alignment: 'right' }],
-              ['Mức lương theo giờ', { text: formatVnd(input.hourlyRate), alignment: 'right' }],
+              [
+                'Tổng số giờ tiêu chuẩn',
+                { text: input.standardHours.toFixed(2), alignment: 'right' },
+              ],
+              [
+                'Tổng số giờ thực tế',
+                { text: input.actualHours.toFixed(2), alignment: 'right' },
+              ],
+              [
+                'Mức lương theo giờ',
+                { text: formatVnd(input.hourlyRate), alignment: 'right' },
+              ],
               [
                 { text: 'Lương tháng', style: 'total' },
-                { text: formatVnd(input.salaryAmount), style: 'total', alignment: 'right' },
+                {
+                  text: formatVnd(input.salaryAmount),
+                  style: 'total',
+                  alignment: 'right',
+                },
               ],
             ],
           },

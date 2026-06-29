@@ -52,12 +52,16 @@ export type AttendanceComputed = {
 
 /**
  * Convert a Date (or null) into seconds-since-midnight. Returns null when the
- * input is null. Uses local hours to match how Postgres `time` columns are
- * read by Prisma (no timezone metadata).
+ * input is null. PostgreSQL `time` values are represented as UTC-anchored
+ * Date objects so historical host timezone offsets cannot alter wall time.
  */
 export function toSecondsOfDay(t: Date | null | undefined): number | null {
   if (!t) return null;
-  return t.getHours() * SECONDS_PER_HOUR + t.getMinutes() * 60 + t.getSeconds();
+  return (
+    t.getUTCHours() * SECONDS_PER_HOUR +
+    t.getUTCMinutes() * 60 +
+    t.getUTCSeconds()
+  );
 }
 
 function pad2(n: number): string {
@@ -77,7 +81,12 @@ function formatHHmmss(secOfDay: number): string {
   return `${pad2(h)}:${pad2(m)}:${pad2(s)}`;
 }
 
-function overlap(aStart: number, aEnd: number, bStart: number, bEnd: number): number {
+function overlap(
+  aStart: number,
+  aEnd: number,
+  bStart: number,
+  bEnd: number,
+): number {
   return Math.max(0, Math.min(aEnd, bEnd) - Math.max(aStart, bStart));
 }
 
@@ -85,7 +94,9 @@ function overlap(aStart: number, aEnd: number, bStart: number, bEnd: number): nu
  * Resolve the working window shown to the employee, given the actual check-in
  * second-of-day. See the rule list at the top of this file.
  */
-export function deriveWorkingWindow(checkinSec: number | null): WorkingWindow | null {
+export function deriveWorkingWindow(
+  checkinSec: number | null,
+): WorkingWindow | null {
   if (checkinSec === null) return null;
 
   if (checkinSec < T_0800) {
@@ -198,7 +209,12 @@ export function computeAttendance(input: {
     };
   }
 
-  const credit = computeStandardCredit(checkinSec, checkoutSec, otApproved, isWeekend);
+  const credit = computeStandardCredit(
+    checkinSec,
+    checkoutSec,
+    otApproved,
+    isWeekend,
+  );
   const workedSeconds = credit * STANDARD_WORK_SECONDS;
   const missingMinutes = Math.max(
     0,

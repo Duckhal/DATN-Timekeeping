@@ -3,6 +3,15 @@ import { PrismaService } from '../prisma/prisma.service';
 import { QueryAttendanceDto } from './dto/query-attendance.dto';
 import { QueryAllAttendanceDto } from './dto/query-all-attendance.dto';
 import { computeAttendance } from './attendance.compute';
+import {
+  businessDateFromInstant,
+  currentBusinessMonth,
+  dateOnlyDayOfWeek,
+  dateOnlyFromIso,
+  formatDateOnly,
+  formatTimeOnly,
+  monthDateRange,
+} from '../common/vietnam-time';
 
 export type AttendanceItem = {
   attendance_id: string; // BigInt serialized as string
@@ -113,7 +122,7 @@ export class AttendanceService {
 
     const items: AttendanceItem[] = rows.map((row) => {
       const dateKey = row.date.toISOString().slice(0, 10);
-      const dayOfWeek = row.date.getDay();
+      const dayOfWeek = dateOnlyDayOfWeek(row.date);
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
       const computed = computeAttendance({
         checkin: row.checkin_time,
@@ -143,7 +152,10 @@ export class AttendanceService {
     };
   }
 
-  private resolveDateRange(query: QueryAttendanceDto): { from: Date; to: Date } {
+  private resolveDateRange(query: QueryAttendanceDto): {
+    from: Date;
+    to: Date;
+  } {
     if (query.from && query.to) {
       const from = this.parseDate(query.from);
       const to = this.parseDate(query.to);
@@ -158,31 +170,19 @@ export class AttendanceService {
   }
 
   private currentMonth(): string {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    return currentBusinessMonth();
   }
 
   private monthRange(month: string): { from: Date; to: Date } {
-    const [y, m] = month.split('-').map(Number);
-    const from = new Date(y, m - 1, 1);
-    const to = new Date(y, m, 0); // day 0 of next month = last day of `m`
-    from.setHours(0, 0, 0, 0);
-    to.setHours(0, 0, 0, 0);
-    return { from, to };
+    return monthDateRange(month);
   }
 
   private parseDate(iso: string): Date {
-    const [y, m, d] = iso.split('-').map(Number);
-    const date = new Date(y, m - 1, d);
-    date.setHours(0, 0, 0, 0);
-    return date;
+    return dateOnlyFromIso(iso);
   }
 
   private formatDate(d: Date): string {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
+    return formatDateOnly(d);
   }
 
   /**
@@ -253,7 +253,7 @@ export class AttendanceService {
 
     const items: AllAttendanceItem[] = rows.map((row) => {
       const dateKey = row.date.toISOString().slice(0, 10);
-      const dayOfWeek = row.date.getDay();
+      const dayOfWeek = dateOnlyDayOfWeek(row.date);
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
       const otKey = `${row.employee_id}_${dateKey}`;
       const computed = computeAttendance({
@@ -363,7 +363,7 @@ export class AttendanceService {
 
     for (const row of rows) {
       const dateKey = row.date.toISOString().slice(0, 10);
-      const dayOfWeek = row.date.getDay();
+      const dayOfWeek = dateOnlyDayOfWeek(row.date);
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
       const otKey = `${row.employee_id}_${dateKey}`;
       const computed = computeAttendance({
@@ -410,8 +410,7 @@ export class AttendanceService {
   }
 
   async findMissingCheckoutDays(employeeId: number) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = businessDateFromInstant(new Date());
 
     const rows = await this.prisma.dailyAttendance.findMany({
       where: {
@@ -432,9 +431,7 @@ export class AttendanceService {
     return rows.map((row) => ({
       attendance_id: row.attendance_id.toString(),
       date: this.formatDate(row.date),
-      checkin_time: row.checkin_time
-        ? `${String(row.checkin_time.getHours()).padStart(2, '0')}:${String(row.checkin_time.getMinutes()).padStart(2, '0')}`
-        : null,
+      checkin_time: row.checkin_time ? formatTimeOnly(row.checkin_time) : null,
     }));
   }
 }

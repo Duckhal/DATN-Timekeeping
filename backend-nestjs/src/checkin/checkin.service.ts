@@ -8,6 +8,12 @@ import {
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PrismaService } from '../prisma/prisma.service';
 import { CheckinDto } from './dto/checkin.dto';
+import {
+  businessDateFromInstant,
+  businessTimeFromInstant,
+  formatDateOnly,
+  formatTimeOnly,
+} from '../common/vietnam-time';
 
 /**
  * Response shape returned to the firmware.
@@ -70,7 +76,6 @@ export class CheckinService {
     }
 
     let employeeId = 0;
-    let employeeName = '';
 
     if (auth_method === 'FINGERPRINT') {
       const mapping = await this.prisma.mapping.findUnique({
@@ -109,10 +114,10 @@ export class CheckinService {
       }
 
       employeeId = employee.employee_id;
-      employeeName = employee.full_name ?? '';
     }
 
     const targetDate = this.resolveAttendanceDate(now);
+    const attendanceTime = businessTimeFromInstant(now);
 
     return this.prisma.$transaction(async (tx) => {
       // 1. Idempotent insert. `sync_hash` is @unique → a retry from firmware
@@ -192,10 +197,10 @@ export class CheckinService {
           create: {
             employee_id: employeeId,
             date: targetDate,
-            checkin_time: now,
+            checkin_time: attendanceTime,
           },
           update: {
-            checkin_time: now,
+            checkin_time: attendanceTime,
           },
         });
       } else {
@@ -207,7 +212,7 @@ export class CheckinService {
               date: targetDate,
             },
           },
-          data: { checkout_time: now },
+          data: { checkout_time: attendanceTime },
         });
       }
 
@@ -217,7 +222,7 @@ export class CheckinService {
       });
 
       this.logger.log(
-        `[Checkin] ${kind} employee=${employeeId} device=${device.device_id} at ${now.toISOString()}`,
+        `[Checkin] kind=${kind} employee=${employeeId} device=${device.device_id} instant=${now.toISOString()} business_date=${formatDateOnly(targetDate)} business_time=${formatTimeOnly(attendanceTime, true)}`,
       );
 
       return {
@@ -238,11 +243,6 @@ export class CheckinService {
    * handles reconciliation.
    */
   private resolveAttendanceDate(at: Date): Date {
-    const date = new Date(at);
-    if (date.getHours() < CheckinService.MIDNIGHT_GRACE_HOUR) {
-      date.setDate(date.getDate() - 1);
-    }
-    date.setHours(0, 0, 0, 0);
-    return date;
+    return businessDateFromInstant(at, CheckinService.MIDNIGHT_GRACE_HOUR);
   }
 }
