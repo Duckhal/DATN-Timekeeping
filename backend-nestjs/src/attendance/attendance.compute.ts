@@ -19,9 +19,11 @@
  */
 
 const SECONDS_PER_HOUR = 3600;
+const SECONDS_PER_DAY = 24 * SECONDS_PER_HOUR;
 const STANDARD_WORK_SECONDS = 8 * SECONDS_PER_HOUR; // 28800
 const LUNCH_SPAN_SECONDS = 1.5 * SECONDS_PER_HOUR; // 5400
 
+const T_0400 = 4 * SECONDS_PER_HOUR;
 const T_0800 = 8 * SECONDS_PER_HOUR;
 const T_0900 = 9 * SECONDS_PER_HOUR;
 const T_1200 = 12 * SECONDS_PER_HOUR;
@@ -125,12 +127,22 @@ export function computeStandardCredit(
   otApproved = false,
   isWeekend = false,
 ): number {
-  if (checkoutSec <= checkinSec) return 0;
+  // A checkout from 00:00 through 03:59 belongs to the previous business day.
+  // Keep its displayed wall-clock value, but move it to the next-day timeline
+  // for duration math so a midnight crossing is not treated as negative time.
+  const effectiveCheckoutSec =
+    checkoutSec <= checkinSec && checkoutSec < T_0400
+      ? checkoutSec + SECONDS_PER_DAY
+      : checkoutSec;
+
+  if (effectiveCheckoutSec <= checkinSec) return 0;
 
   if (isWeekend && !otApproved) return 0;
 
   const liftCap = otApproved; // both weekday-OT and weekend-OT lift the 18:30 / 1.0 caps
-  const tOutStd = liftCap ? checkoutSec : Math.min(checkoutSec, T_1830);
+  const tOutStd = liftCap
+    ? effectiveCheckoutSec
+    : Math.min(effectiveCheckoutSec, T_1830);
   if (tOutStd <= checkinSec) return 0;
 
   const lunchOverlap = overlap(checkinSec, tOutStd, T_1200, T_1330);
