@@ -169,6 +169,18 @@ export class DevicesService {
     return updated;
   }
 
+  private publishClearFingerprintDatabase(macAddr: string) {
+    const topic = `timekeeping/device/${macAddr}/command`;
+    this.mqttService
+      .publish(topic, { command: 'CLEAR_FINGERPRINT_DATABASE' })
+      .catch((err) => {
+        this.logger.warn(
+          `MQTT fingerprint database clear failed for device ${macAddr}: ${err.message}`,
+        );
+      }
+    );
+  }
+
   async remove(deviceId: number) {
     const device = await this.findById(deviceId);
 
@@ -178,11 +190,16 @@ export class DevicesService {
     });
 
     this.publishStatusUpdate(device.mac_addr, 'INACTIVE');
-    this.logger.log(`[DeviceRemove] deviceId=${deviceId} status=INACTIVE`);
+    this.publishClearFingerprintDatabase(device.mac_addr);
+
+    this.logger.log(
+      `[DeviceRemove] deviceId=${deviceId} status=INACTIVE clear_fingerprint_database=REQUESTED`,
+    );
 
     return {
       mode: 'SOFT_DELETE',
-      message: 'Device status changed to INACTIVE.',
+      message:
+        'Device status changed to INACTIVE. Fingerprint database clear command sent if device is online.',
       device: inactiveDevice,
     };
   }

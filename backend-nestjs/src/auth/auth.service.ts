@@ -21,7 +21,7 @@ export class AuthService {
   async login(loginDto: LoginDto) {
     const employee = await this.employeesService.findByEmail(loginDto.email);
 
-    if (!employee) {
+    if (!employee || !employee.is_active) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -74,8 +74,8 @@ export class AuthService {
       where: { employee_id: employeeId },
     });
 
-    if (!employee) {
-      throw new NotFoundException('Employee not found');
+    if (!employee || !employee.is_active) {
+      throw new UnauthorizedException('Invalid credentials');
     }
 
     const isCurrentValid = await argon2.verify(

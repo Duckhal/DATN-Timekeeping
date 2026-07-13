@@ -479,7 +479,7 @@ export function CredentialsPage() {
             </Typography>
             <TextField
               label="RFID Tag Code"
-              placeholder="Scan or type RFID code"
+              placeholder="Enter RFID code"
               value={rfidTagDraft}
               onChange={(event) => setRfidTagDraft(event.target.value)}
               fullWidth

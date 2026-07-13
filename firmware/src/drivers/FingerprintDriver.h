@@ -17,6 +17,7 @@ class FingerprintDriver {
   uint16_t storeModel(uint16_t id);
   uint16_t loadModel(uint16_t id);
   uint16_t deleteModel(uint16_t id);
+  uint8_t emptyDatabase();
 
   /** Returns the first slot id in [1, maxId] not used by a stored template, or 0 if none. */
   uint16_t findFirstFreeSlot(uint16_t maxId);

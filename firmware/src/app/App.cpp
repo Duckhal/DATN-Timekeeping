@@ -288,6 +288,21 @@ if (isPortalMode_) {
   }
   bulkSyncService_.tick(currentConfig_, config::network::kDeviceApiKey);
 
+  if (!enrollmentService_.isEnrolling() &&
+      !bulkSyncService_.isSyncing() &&
+      mqttService_.consumeClearFingerprintDatabaseCommand()) {
+    if (!enrollmentService_.sensorReady()) {
+      enrollmentService_.initSensor(true, config::timing::kFingerprintRetryIntervalMs);
+    }
+
+    if (!enrollmentService_.sensorReady()) {
+      Serial.println("[App] CLEAR_FINGERPRINT_DATABASE aborted: sensor is not ready.");
+    } else {
+      const uint8_t result = fingerprintDriver_.emptyDatabase();
+      Serial.printf("[App] CLEAR_FINGERPRINT_DATABASE emptyDatabase() -> %u\n", result);
+    }
+  }
+
   uint16_t deleteLocalId = 0;
   if (mqttService_.consumeDeleteFingerCommand(deleteLocalId)) {
     if (enrollmentService_.isEnrolling()) {

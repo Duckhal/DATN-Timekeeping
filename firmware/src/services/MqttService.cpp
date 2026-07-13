@@ -18,7 +18,8 @@ MqttService::MqttService(drivers::MqttClientDriver& driver)
       deleteFingerLocalId_(0),
       statusUpdatePending_(false),
       pendingStatus_(models::RemoteDeviceStatus::UNKNOWN),
-      bulkSyncPending_(false) {}
+      bulkSyncPending_(false),
+      clearFingerprintDatabasePending_(false) {}
 
 void MqttService::begin() {
   instance_ = this;
@@ -123,6 +124,15 @@ bool MqttService::consumeBulkSyncCommand() {
   return true;
 }
 
+bool MqttService::consumeClearFingerprintDatabaseCommand() {
+  if (!clearFingerprintDatabasePending_) {
+    return false;
+  }
+
+  clearFingerprintDatabasePending_ = false;
+  return true;
+}
+
 void MqttService::onRawMessage(char* topic, uint8_t* payload, unsigned int length) {
   if (!instance_) {
     return;
@@ -213,6 +223,11 @@ void MqttService::handleMessage(char* topic, uint8_t* payload, unsigned int leng
   if (command == "START_BULK_SYNC") {
     bulkSyncPending_ = true;
     Serial.println("[MQTT] Received START_BULK_SYNC command.");
+  }
+
+  if (command == "CLEAR_FINGERPRINT_DATABASE") {
+    clearFingerprintDatabasePending_ = true;
+    Serial.println("[MQTT] Received CLEAR_FINGERPRINT_DATABASE command.");
   }
 }
 

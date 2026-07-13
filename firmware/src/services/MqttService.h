@@ -23,6 +23,7 @@ class MqttService {
   bool consumeDeleteFingerCommand(uint16_t& outLocalId);
   bool consumeStatusUpdate(models::RemoteDeviceStatus& outStatus);
   bool consumeBulkSyncCommand();
+  bool consumeClearFingerprintDatabaseCommand();
 
  private:
   static void onRawMessage(char* topic, uint8_t* payload, unsigned int length);
@@ -49,6 +50,8 @@ class MqttService {
   models::RemoteDeviceStatus pendingStatus_;
 
   bool bulkSyncPending_;
+
+  bool clearFingerprintDatabasePending_;
 
   static MqttService* instance_;
 };

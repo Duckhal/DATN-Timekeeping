@@ -130,12 +130,14 @@ export function computeStandardCredit(
   // A checkout from 00:00 through 03:59 belongs to the previous business day.
   // Keep its displayed wall-clock value, but move it to the next-day timeline
   // for duration math so a midnight crossing is not treated as negative time.
+  const effectiveCheckinSec =
+    !otApproved && !isWeekend ? Math.max(checkinSec, T_0800) : checkinSec;
   const effectiveCheckoutSec =
     checkoutSec <= checkinSec && checkoutSec < T_0400
       ? checkoutSec + SECONDS_PER_DAY
       : checkoutSec;
 
-  if (effectiveCheckoutSec <= checkinSec) return 0;
+  if (effectiveCheckoutSec <= effectiveCheckinSec) return 0;
 
   if (isWeekend && !otApproved) return 0;
 
@@ -143,14 +145,14 @@ export function computeStandardCredit(
   const tOutStd = liftCap
     ? effectiveCheckoutSec
     : Math.min(effectiveCheckoutSec, T_1830);
-  if (tOutStd <= checkinSec) return 0;
+  if (tOutStd <= effectiveCheckinSec) return 0;
 
-  const lunchOverlap = overlap(checkinSec, tOutStd, T_1200, T_1330);
+  const lunchOverlap = overlap(effectiveCheckinSec, tOutStd, T_1200, T_1330);
   const dinnerOverlap = otApproved
-    ? overlap(checkinSec, tOutStd, T_1830, T_2000)
+    ? overlap(effectiveCheckinSec, tOutStd, T_1830, T_2000)
     : 0;
 
-  const sWork = tOutStd - checkinSec - lunchOverlap - dinnerOverlap;
+  const sWork = tOutStd - effectiveCheckinSec - lunchOverlap - dinnerOverlap;
   if (sWork <= 0) return 0;
 
   return liftCap

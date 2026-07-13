@@ -42,6 +42,10 @@ uint16_t FingerprintDriver::deleteModel(uint16_t id) {
   return fingerprint_.deleteModel(id);
 }
 
+uint8_t FingerprintDriver::emptyDatabase() {
+  return fingerprint_.emptyDatabase();
+}
+
 uint16_t FingerprintDriver::findFirstFreeSlot(uint16_t maxId) {
   for (uint16_t id = 1; id <= maxId; id++) {
     const uint8_t result = fingerprint_.loadModel(id);
