@@ -184,10 +184,23 @@ export class DevicesService {
   async remove(deviceId: number) {
     const device = await this.findById(deviceId);
 
-    const inactiveDevice = await this.prisma.device.update({
-      where: { device_id: deviceId },
-      data: { status: 'INACTIVE' },
-    });
+    if (device.status === 'INACTIVE') {
+      return {
+        mode: 'SOFT_DELETE',
+        message: 'Device is already INACTIVE.',
+        device,
+      };
+    }
+
+    const [inactiveDevice] = await this.prisma.$transaction([
+      this.prisma.device.update({
+        where: { device_id: deviceId },
+        data: { status: 'INACTIVE' },
+      }),
+      this.prisma.mapping.deleteMany({
+        where: { device_id: deviceId },
+      }),
+    ]);
 
     this.publishStatusUpdate(device.mac_addr, 'INACTIVE');
     this.publishClearFingerprintDatabase(device.mac_addr);
