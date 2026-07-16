@@ -33,7 +33,13 @@ import type { SelectChangeEvent } from '@mui/material'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import SyncRoundedIcon from '@mui/icons-material/SyncRounded'
-import { bulkSyncDevice, getManagerDevices, removeDevice, updateDevice } from '../apis/deviceService'
+import {
+  bulkSyncDevice,
+  getDeviceConnectivity,
+  getManagerDevices,
+  removeDevice,
+  updateDevice,
+} from '../apis/deviceService'
 import { SearchInput } from '../components/utils/SearchInput'
 import { onDeviceStatusChange } from '../contexts/NotificationContext'
 import type { Device, DeviceStatus } from '../types/device'
@@ -137,6 +143,24 @@ export function DevicesPage() {
       })
       setDevices(data.items)
       setTotal(data.total)
+
+      // === Hydrate onlineMap from backend's cached connectivity state ===
+      try {
+        const connectivity = await getDeviceConnectivity()
+        setOnlineMap((prev) => {
+          const next = { ...prev }
+          for (const item of data.items) {
+            const status = connectivity[item.mac_addr]
+            if (status) {
+              next[item.mac_addr] = status === 'ACTIVE'
+            }
+          }
+          return next
+        })
+      } catch {
+        // silent — realtime socket events sẽ fill state
+      }
+
       return data
     } catch (error) {
       setSnackbar({

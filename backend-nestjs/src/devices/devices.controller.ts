@@ -14,13 +14,17 @@ import { Public } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { ApiKeyGuard } from '../auth/guards/api-key.guard';
 import { DevicesService } from './devices.service';
+import { MqttService } from '../mqtt/mqtt.service';
 import { UpdateDeviceDto } from './dto/update-device.dto';
 import { FactoryResetDto } from './dto/factory-reset.dto';
 import { QueryDevicesDto } from './dto/query-devices.dto';
 
 @Controller('devices')
 export class DevicesController {
-  constructor(private readonly devicesService: DevicesService) {}
+  constructor(
+    private readonly devicesService: DevicesService,
+    private readonly mqttService: MqttService,
+  ) {}
 
   @Public()
   @UseGuards(ApiKeyGuard)
@@ -39,6 +43,13 @@ export class DevicesController {
   @Roles('MANAGER')
   findForManager(@Query() query: QueryDevicesDto) {
     return this.devicesService.findForManager(query);
+  }
+
+  // === Connectivity snapshot for frontend initial state ===
+  @Get('connectivity')
+  @Roles('MANAGER')
+  getConnectivity() {
+    return this.mqttService.getDeviceConnectivity();
   }
 
   @Patch(':id')

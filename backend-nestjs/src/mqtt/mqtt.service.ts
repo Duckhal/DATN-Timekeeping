@@ -10,6 +10,10 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
   private brokerUrl = '';
   private readonly statusTopic = 'timekeeping/devices/status';
 
+  // === In-memory cache for current device connectivity (MQTT LWT) ===
+  // Key: mac_addr, Value: 'ACTIVE' | 'OFFLINE'
+  private readonly deviceOnlineMap = new Map<string, 'ACTIVE' | 'OFFLINE'>();
+
   constructor(
     private readonly configService: ConfigService,
     private readonly notificationsGateway: NotificationsGateway,
@@ -78,6 +82,10 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
         `[DeviceStatus] mac=${data.mac_addr} status=${data.status}`,
       );
 
+      // === Cache for initial state on page load ===
+      this.deviceOnlineMap.set(data.mac_addr, data.status);
+
+      // === Forward realtime to all managers ===
       this.notificationsGateway.sendToRole('MANAGER', 'device:status', {
         mac_addr: data.mac_addr,
         status: data.status,
@@ -86,6 +94,11 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
     } catch (err) {
       this.logger.warn(`Failed to parse status payload: ${(err as Error).message}`);
     }
+  }
+
+  // === Expose current connectivity state for API ===
+  getDeviceConnectivity(): Record<string, 'ACTIVE' | 'OFFLINE'> {
+    return Object.fromEntries(this.deviceOnlineMap);
   }
 
   async publish(topic: string, payload: Record<string, unknown>) {

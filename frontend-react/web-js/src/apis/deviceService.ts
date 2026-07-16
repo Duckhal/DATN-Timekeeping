@@ -35,3 +35,12 @@ export async function bulkSyncDevice(deviceId: number): Promise<{ message: strin
   const response = await apiClient.post<{ message: string }>(`/devices/${deviceId}/bulk-sync`)
   return response.data
 }
+
+// === Snapshot of current MQTT-derived connectivity ===
+// Returned as Record<mac_addr, 'ACTIVE' | 'OFFLINE'>
+export type DeviceConnectivityMap = Record<string, 'ACTIVE' | 'OFFLINE'>
+
+export async function getDeviceConnectivity(): Promise<DeviceConnectivityMap> {
+  const response = await apiClient.get<DeviceConnectivityMap>('/devices/connectivity')
+  return response.data
+}
