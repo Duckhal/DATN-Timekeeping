@@ -16,6 +16,8 @@ class MqttService {
                        uint16_t brokerPort, uint32_t reconnectIntervalMs);
   void loop();
 
+  void publishOnlineStatus(const String& macAddress);
+
   bool consumeEnrollCommand();
   bool consumeSyncCommand(uint32_t& outEmployeeId,
                           String& outTemplateData,

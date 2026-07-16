@@ -185,6 +185,15 @@ if (isPortalMode_) {
                                config::timing::kMqttReconnectIntervalMs);
   mqttService_.loop();
 
+  // === Định kỳ publish ACTIVE status để broker giữ retain message ===
+  if (mqttService_.connected()) {
+    static uint32_t lastOnlinePublishMs = 0;
+    if (millis() - lastOnlinePublishMs >= config::timing::kRegisterIntervalMs) {
+      lastOnlinePublishMs = millis();
+      mqttService_.publishOnlineStatus(networkService_.macAddress());
+    }
+  }
+
   if (networkService_.wifiStatus() == WL_CONNECTED && 
       registrationService_.state() == services::DeviceRegistrationService::State::FAILED) {
       

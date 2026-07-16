@@ -51,11 +51,24 @@ bool MqttService::connectIfNeeded(const String& brokerHost, const String& macAdd
 
   driver_.setServer(brokerHost.c_str(), brokerPort);
 
-  const bool connected = driver_.connect(clientId.c_str());
+  // === LWT: broker sẽ tự publish OFFLINE nếu kết nối abnormal disconnect ===
+  const String willTopic = config::network::kMqttStatusTopic;
+  const String willPayload = String("{\"mac_addr\":\"") + macAddress +
+                             "\",\"status\":\"OFFLINE\"}";
+
+  const bool connected = driver_.connectWithWill(
+      clientId.c_str(),
+      willTopic.c_str(),
+      config::network::kMqttStatusQos,
+      true,  // retain LWT message
+      willPayload.c_str());
+
   if (!connected) {
     Serial.printf("[MQTT] Connect failed. rc=%d\n", driver_.state());
     return false;
   }
+
+  Serial.printf("[MQTT] Connected with LWT: topic=%s retain=1\n", willTopic.c_str());
 
   const bool subscribed = driver_.subscribe(commandTopic_.c_str(), 1);
   const bool public_subscribed = driver_.subscribe(config::network::kMqttBroadcastSyncTopic, 1);
@@ -69,6 +82,21 @@ bool MqttService::connectIfNeeded(const String& brokerHost, const String& macAdd
 void MqttService::loop() {
   if (driver_.connected()) {
     driver_.loop();
+  }
+}
+
+void MqttService::publishOnlineStatus(const String& macAddress) {
+  if (!driver_.connected()) {
+    return;
+  }
+
+  const String payload = String("{\"mac_addr\":\"") + macAddress +
+                         "\",\"status\":\"ACTIVE\"}";
+  const bool ok = driver_.publish(config::network::kMqttStatusTopic,
+                                  payload.c_str(), true);  // retain=true
+  if (ok) {
+    Serial.printf("[MQTT] Published ACTIVE status (retain=1): mac=%s\n",
+                  macAddress.c_str());
   }
 }
 

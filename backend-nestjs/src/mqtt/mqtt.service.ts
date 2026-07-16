@@ -1,14 +1,19 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { connect, type MqttClient } from 'mqtt';
+import { NotificationsGateway } from '../notifications/notifications.gateway';
 
 @Injectable()
 export class MqttService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(MqttService.name);
   private client: MqttClient | null = null;
   private brokerUrl = '';
+  private readonly statusTopic = 'timekeeping/devices/status';
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly notificationsGateway: NotificationsGateway,
+  ) {}
 
   onModuleInit() {
     this.brokerUrl =
@@ -21,6 +26,15 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
 
     this.client.on('connect', () => {
       this.logger.log(`Connected to MQTT broker: ${this.brokerUrl}`);
+
+      // === Subscribe status topic SAU KHI broker accept connection ===
+      this.client!.subscribe(this.statusTopic, { qos: 1 }, (err) => {
+        if (err) {
+          this.logger.error(`Subscribe ${this.statusTopic} failed: ${err.message}`);
+        } else {
+          this.logger.log(`Subscribed to ${this.statusTopic} (QoS 1)`);
+        }
+      });
     });
 
     this.client.on('reconnect', () => {
@@ -34,6 +48,44 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
     this.client.on('close', () => {
       this.logger.warn('MQTT connection closed');
     });
+
+    // === Handle incoming status messages ===
+    this.client.on('message', (topic, payload, packet) => {
+      if (topic === this.statusTopic) {
+        this.handleStatusMessage(payload.toString());
+      }
+    });
+  }
+
+  private handleStatusMessage(payload: string) {
+    try {
+      const data = JSON.parse(payload) as {
+        mac_addr?: string;
+        status?: string;
+      };
+
+      if (!data.mac_addr || !data.status) {
+        this.logger.warn(`Invalid status payload: ${payload}`);
+        return;
+      }
+
+      if (data.status !== 'ACTIVE' && data.status !== 'OFFLINE') {
+        this.logger.warn(`Unknown status value: ${data.status}`);
+        return;
+      }
+
+      this.logger.log(
+        `[DeviceStatus] mac=${data.mac_addr} status=${data.status}`,
+      );
+
+      this.notificationsGateway.sendToRole('MANAGER', 'device:status', {
+        mac_addr: data.mac_addr,
+        status: data.status,
+        timestamp: Date.now(),
+      });
+    } catch (err) {
+      this.logger.warn(`Failed to parse status payload: ${(err as Error).message}`);
+    }
   }
 
   async publish(topic: string, payload: Record<string, unknown>) {

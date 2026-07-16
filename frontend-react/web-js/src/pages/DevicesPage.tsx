@@ -35,6 +35,7 @@ import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import SyncRoundedIcon from '@mui/icons-material/SyncRounded'
 import { bulkSyncDevice, getManagerDevices, removeDevice, updateDevice } from '../apis/deviceService'
 import { SearchInput } from '../components/utils/SearchInput'
+import { onDeviceStatusChange } from '../contexts/NotificationContext'
 import type { Device, DeviceStatus } from '../types/device'
 
 const PAGE_SIZE_OPTIONS = [1, 10, 20, 50, 100] as const
@@ -53,7 +54,7 @@ const DEFAULT_SNACKBAR: SnackbarState = {
   message: '',
 }
 
-function statusColor(status: DeviceStatus): 'success' | 'default' | 'warning' {
+function statusColor(status: DeviceStatus | 'OFFLINE'): 'success' | 'default' | 'warning' | 'error' {
   if (status === 'ACTIVE') {
     return 'success'
   }
@@ -62,11 +63,29 @@ function statusColor(status: DeviceStatus): 'success' | 'default' | 'warning' {
     return 'default'
   }
 
+  if (status === 'OFFLINE') {
+    return 'error'
+  }
+
   return 'warning'
 }
 
-function formatStatus(status: DeviceStatus): string {
+function formatStatus(status: DeviceStatus | 'OFFLINE'): string {
+  if (status === 'OFFLINE') {
+    return 'Offline'
+  }
   return status.charAt(0) + status.slice(1).toLowerCase()
+}
+
+function effectiveStatus(
+  deviceStatus: DeviceStatus,
+  isOnline: boolean | undefined,
+): DeviceStatus | 'OFFLINE' {
+  // ACTIVE + offline (LWT says OFFLINE) → show OFFLINE
+  if (deviceStatus === 'ACTIVE' && isOnline === false) {
+    return 'OFFLINE'
+  }
+  return deviceStatus
 }
 
 function getApiErrorMessage(error: unknown, fallback: string): string {
@@ -97,6 +116,10 @@ export function DevicesPage() {
 
   const [editingDevice, setEditingDevice] = useState<Device | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Device | null>(null)
+
+  // === MQTT-derived runtime connectivity (NOT persisted in DB) ===
+  // undefined = chưa nhận event, default online cho ACTIVE devices
+  const [onlineMap, setOnlineMap] = useState<Record<string, boolean>>({})
 
   const [nameDraft, setNameDraft] = useState('')
   const [statusDraft, setStatusDraft] = useState<DeviceStatus>('ACTIVE')
@@ -130,6 +153,17 @@ export function DevicesPage() {
   useEffect(() => {
     void loadDevices()
   }, [loadDevices])
+
+  // === Subscribe MQTT-derived device:status events ===
+  useEffect(() => {
+    const off = onDeviceStatusChange((payload) => {
+      setOnlineMap((prev) => ({
+        ...prev,
+        [payload.mac_addr]: payload.status === 'ACTIVE',
+      }))
+    })
+    return off
+  }, [])
 
   const handleSearch = useCallback((value: string) => {
     setSearch(value)
@@ -175,57 +209,77 @@ export function DevicesPage() {
       )
     }
 
-    return devices.map((device) => (
-      <TableRow key={device.device_id} hover>
-        <TableCell>{device.device_id}</TableCell>
-        <TableCell>{device.name ?? '-'}</TableCell>
-        <TableCell>{device.mac_addr}</TableCell>
-        <TableCell>
-          <Chip size="small" label={formatStatus(device.status)} color={statusColor(device.status)} />
-        </TableCell>
-        <TableCell align="center">
-          <Stack direction="row" spacing={0.5} justifyContent="center">
-            <Tooltip title="Edit Device">
-              <IconButton
-                size="small"
-                color="primary"
-                onClick={() => {
-                  setEditingDevice(device)
-                  setNameDraft(device.name ?? '')
-                  setStatusDraft(device.status)
-                }}
-              >
-                <EditRoundedIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
+    return devices.map((device) => {
+      const displayedStatus = effectiveStatus(device.status, onlineMap[device.mac_addr])
+      const isOffline = displayedStatus === 'OFFLINE'
+
+      return (
+        <TableRow key={device.device_id} hover>
+          <TableCell>{device.device_id}</TableCell>
+          <TableCell>{device.name ?? '-'}</TableCell>
+          <TableCell>{device.mac_addr}</TableCell>
+          <TableCell>
             <Tooltip
-              title={device.status === 'ACTIVE' ? 'Sync Device' : 'Only active devices can be synced'}
+              title={isOffline ? 'Device offline (MQTT LWT)' : 'Device status'}
+              placement="top"
             >
-              <span>
+              <Chip
+                size="small"
+                label={formatStatus(displayedStatus)}
+                color={statusColor(displayedStatus)}
+              />
+            </Tooltip>
+          </TableCell>
+          <TableCell align="center">
+            <Stack direction="row" spacing={0.5} justifyContent="center">
+              <Tooltip title="Edit Device">
                 <IconButton
                   size="small"
-                  color="info"
-                  disabled={device.status !== 'ACTIVE'}
-                  onClick={() => handleBulkSync(device)}
+                  color="primary"
+                  onClick={() => {
+                    setEditingDevice(device)
+                    setNameDraft(device.name ?? '')
+                    setStatusDraft(device.status)
+                  }}
                 >
-                  <SyncRoundedIcon fontSize="small" />
+                  <EditRoundedIcon fontSize="small" />
                 </IconButton>
-              </span>
-            </Tooltip>
-            <Tooltip title="Delete Device">
-              <IconButton
-                size="small"
-                color="error"
-                onClick={() => setDeleteTarget(device)}
+              </Tooltip>
+              <Tooltip
+                title={
+                  device.status !== 'ACTIVE'
+                    ? 'Only active devices can be synced'
+                    : isOffline
+                    ? 'Device is offline'
+                    : 'Sync Device'
+                }
               >
-                <DeleteRoundedIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          </Stack>
-        </TableCell>
-      </TableRow>
-    ))
-  }, [devices, isLoading])
+                <span>
+                  <IconButton
+                    size="small"
+                    color="info"
+                    disabled={device.status !== 'ACTIVE' || isOffline}
+                    onClick={() => handleBulkSync(device)}
+                  >
+                    <SyncRoundedIcon fontSize="small" />
+                  </IconButton>
+                </span>
+              </Tooltip>
+              <Tooltip title="Delete Device">
+                <IconButton
+                  size="small"
+                  color="error"
+                  onClick={() => setDeleteTarget(device)}
+                >
+                  <DeleteRoundedIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Stack>
+          </TableCell>
+        </TableRow>
+      )
+    })
+  }, [devices, isLoading, onlineMap])
 
   const handleSaveEdit = async () => {
     if (!editingDevice) {

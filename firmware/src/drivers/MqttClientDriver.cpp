@@ -1,7 +1,11 @@
 #include "drivers/MqttClientDriver.h"
 
+#include "Config/Config.h"
+
 namespace tk::drivers {
-MqttClientDriver::MqttClientDriver() : client_(transport_) {}
+MqttClientDriver::MqttClientDriver() : client_(transport_) {
+  client_.setKeepAlive(config::network::kMqttKeepAliveSec);
+}
 
 void MqttClientDriver::setServer(const char* host, uint16_t port) {
   client_.setServer(host, port);
@@ -13,6 +17,12 @@ void MqttClientDriver::setCallback(RawMqttCallback callback) {
 
 bool MqttClientDriver::connect(const char* clientId) {
   return client_.connect(clientId);
+}
+
+bool MqttClientDriver::connectWithWill(const char* clientId, const char* willTopic,
+                                       uint8_t willQos, bool willRetain,
+                                       const char* willMessage) {
+  return client_.connect(clientId, willTopic, willQos, willRetain, willMessage);
 }
 
 bool MqttClientDriver::subscribe(const char* topic, uint8_t qos) {

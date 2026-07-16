@@ -29,10 +29,18 @@ export class NotificationsGateway
 
       const payload = this.jwtService.verify(token);
       const employeeId: number = payload.employee_id ?? payload.sub;
+      const role: string = payload.role ?? 'EMPLOYEE';
+
       (client as any).employeeId = employeeId;
+      (client as any).role = role;
 
       client.join(`user_${employeeId}`);
-      this.logger.log(`[WS] Connected: employee=${employeeId} socket=${client.id}`);
+      if (role === 'MANAGER') {
+        client.join('role_MANAGER');
+      }
+      this.logger.log(
+        `[WS] Connected: employee=${employeeId} role=${role} socket=${client.id}`,
+      );
     } catch {
       client.disconnect();
     }
@@ -47,5 +55,10 @@ export class NotificationsGateway
 
   sendToUser(employeeId: number, event: string, payload: any) {
     this.server.to(`user_${employeeId}`).emit(event, payload);
+  }
+
+  sendToRole(role: 'MANAGER' | 'EMPLOYEE', event: string, payload: any) {
+    this.logger.debug(`[WS] sendToRole: role=${role} event=${event}`);
+    this.server.to(`role_${role}`).emit(event, payload);
   }
 }

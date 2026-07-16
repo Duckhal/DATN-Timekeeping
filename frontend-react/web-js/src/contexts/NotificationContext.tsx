@@ -5,7 +5,20 @@ import { useAuth } from '../hooks/useAuth'
 import { getNotifications, getUnreadCount, markAllAsRead, markAsRead } from '../apis/notificationService'
 import type { NotificationItem } from '../types/notification'
 import { AUTH_TOKEN_KEY } from '../apis/axios'
+import type { DeviceStatusPayload } from '../types/device'
 import { NotificationContext } from './NotificationContextValue'
+
+// === Module-level registry: DevicesPage subscribes to these ===
+const deviceStatusListeners = new Set<(payload: DeviceStatusPayload) => void>()
+
+export function onDeviceStatusChange(
+  cb: (payload: DeviceStatusPayload) => void,
+): () => void {
+  deviceStatusListeners.add(cb)
+  return () => {
+    deviceStatusListeners.delete(cb)
+  }
+}
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated, isBootstrapping } = useAuth()
@@ -62,6 +75,11 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     socket.on('notification:new', (payload: NotificationItem) => {
       setNotifications((prev) => [payload, ...prev])
       setUnreadCount((c) => c + 1)
+    })
+
+    // === Forward device:status events to listeners (e.g. DevicesPage) ===
+    socket.on('device:status', (payload: DeviceStatusPayload) => {
+      deviceStatusListeners.forEach((cb) => cb(payload))
     })
 
     socketRef.current = socket

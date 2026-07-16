@@ -8,6 +8,13 @@ export type Device = {
   status: DeviceStatus
 }
 
+// === Runtime connectivity — derived from MQTT LWT, not persisted in DB ===
+export type DeviceStatusPayload = {
+  mac_addr: string
+  status: 'ACTIVE' | 'OFFLINE'
+  timestamp: number
+}
+
 export type ManagerDevicesQuery = {
   search?: string
   status?: DeviceStatus

@@ -78,6 +78,12 @@ constexpr const char* kFactoryResetEndpoint = "/devices/factory-reset";
 constexpr const char* kSyncFingerprintEndpoint = "/devices/sync-fingerprint";
 constexpr const char* kBulkSyncTemplatesEndpoint = "/devices/bulk-sync-templates";
 constexpr const char* kBulkSyncAckEndpoint = "/devices/bulk-sync-ack";
+
+// === LWT device connectivity ===
+constexpr const char* kMqttStatusTopic = "timekeeping/devices/status";
+constexpr uint8_t kMqttStatusQos = 1;
+constexpr uint16_t kMqttKeepAliveSec = 30;
+constexpr uint32_t kOnlineHeartbeatIntervalMs = 60000;
 }  // namespace network
 
 namespace buzzer {
